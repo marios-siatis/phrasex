@@ -26,7 +26,35 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
             c.Fill(Color.FromRgba(0, 0, 0, 95));
         });
 
-        var font = SystemFonts.Collection.Families.FirstOrDefault(f => f.Name.Contains("DejaVu", StringComparison.OrdinalIgnoreCase));
+        var preferredFonts = new[]
+        {
+            "Roboto",
+            "Inter",
+            "Noto Sans",
+            "Open Sans",
+            "Source Sans 3",
+            "Arial"
+        };
+
+        var font = default(FontFamily);
+
+        foreach (var preferredFont in preferredFonts)
+        {
+            var candidate = SystemFonts.Collection.Families
+                .FirstOrDefault(
+                    f => string.Equals(
+                        f.Name,
+                        preferredFont,
+                        StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrEmpty(candidate.Name))
+            {
+                font = candidate;
+                break;
+            }
+        }
+
+
         if (string.IsNullOrEmpty(font.Name))
         {
             throw new InvalidOperationException("No system font is available for rendering.");
@@ -34,9 +62,25 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
 
         var quoteFont = font.CreateFont(58, FontStyle.Bold);
         var logoFont = font.CreateFont(30, FontStyle.Bold);
-        var quoteOptions = new RichTextOptions(quoteFont) { Origin = new PointF(540, 620), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, WrappingLength = 860, TextAlignment = TextAlignment.Center };
-        var logoOptions = new RichTextOptions(logoFont) { Origin = new PointF(540, 1180), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        image.Mutate(c => { c.DrawText(quoteOptions, quote, Color.White); c.DrawText(logoOptions, "PHRASEX", Color.FromRgba(255, 255, 255, 220)); });
+        var quoteOptions = new RichTextOptions(quoteFont)
+        {
+            Origin = new PointF(540, 620),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            WrappingLength = 860,
+            TextAlignment = TextAlignment.Center
+        };
+        var logoOptions = new RichTextOptions(logoFont)
+        {
+            Origin = new PointF(540, 1180),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        image.Mutate(c =>
+        {
+            c.DrawText(quoteOptions, quote, Color.White);
+            c.DrawText(logoOptions, "PHRASEX", Color.FromRgba(255, 255, 255, 220));
+        });
 
         await using var output = new MemoryStream();
         await image.SaveAsync(output, new JpegEncoder { Quality = 92 }, ct);
@@ -45,9 +89,14 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
         var bucket = configuration["Storage:BucketName"];
         if (!string.IsNullOrWhiteSpace(bucket))
         {
-            await s3.PutObjectAsync(new PutObjectRequest { BucketName = bucket, Key = key, InputStream = output, ContentType = "image/jpeg" }, ct);
+            await s3.PutObjectAsync(
+                new PutObjectRequest
+                {
+                    BucketName = bucket, Key = key, InputStream = output, ContentType = "image/jpeg"
+                }, ct);
             return $"https://{bucket}.s3.amazonaws.com/{key}";
         }
+
         var local = configuration["Storage:LocalPath"] ?? "generated";
         Directory.CreateDirectory(local);
         await File.WriteAllBytesAsync(Path.Combine(local, Path.GetFileName(key)), output.ToArray(), ct);
