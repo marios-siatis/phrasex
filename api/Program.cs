@@ -13,7 +13,8 @@ builder.Services.AddDbContext<AppDbContext>(o => o.UseNpgsql(builder.Configurati
 builder.Services.AddHttpClient<PexelsClient>();
 builder.Services.AddHttpClient<ImageComposer>();
 builder.Services.AddAWSService<IAmazonS3>();
-builder.Services.AddScoped<PexelsClient>(); builder.Services.AddScoped<ImageComposer>();
+builder.Services.AddScoped<PexelsClient>();
+builder.Services.AddScoped<ImageComposer>();
 var jwt = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o => o.TokenValidationParameters = new() { ValidateIssuer = true, ValidIssuer = jwt["Issuer"], ValidateAudience = true, ValidAudience = jwt["Audience"], ValidateIssuerSigningKey = true, IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!)), ValidateLifetime = true });
 builder.Services.AddAuthorization();
@@ -21,7 +22,9 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(builder.Conf
 var app = builder.Build();
 var localImageDirectory = Path.GetFullPath(builder.Configuration["Storage:LocalPath"] ?? "generated");
 Directory.CreateDirectory(localImageDirectory);
-app.UseCors(); app.UseAuthentication(); app.UseAuthorization();
+app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseStaticFiles(
     new StaticFileOptions
     {
@@ -31,14 +34,31 @@ app.UseStaticFiles(
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>(); await db.Database.EnsureCreatedAsync(); if (!await db.Interests.AnyAsync()) { db.Interests.AddRange((new string[] { "Love", "Relationships", "Inspiration", "Mindfulness", "Success", "Friendship", "Motivation", "Gratitude" }).Select(n => new Interest { Name = n })); var admin = new AppUser { Email = "admin@phrasex.local", DisplayName = "PhraseX Admin", IsAdmin = true }; admin.PasswordHash = new PasswordHasher<AppUser>().HashPassword(admin, "ChangeMe123!"); db.Users.Add(admin); await db.SaveChangesAsync(); }
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.EnsureCreatedAsync();
+    if (!await db.Interests.AnyAsync())
+    {
+        db.Interests.AddRange((new string[] { "Love", "Relationships", "Inspiration", "Mindfulness", "Success", "Friendship", "Motivation", "Gratitude" }).Select(n => new Interest { Name = n }));
+        var admin = new AppUser { Email = "admin@phrasex.local", DisplayName = "PhraseX Admin", IsAdmin = true };
+        admin.PasswordHash = new PasswordHasher<AppUser>().HashPassword(admin, "ChangeMe123!");
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+    }
 }
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapPost("/api/auth/register", async (RegisterRequest r, AppDbContext db) =>
 {
-    if (await db.Users.AnyAsync(u => u.Email == r.Email.ToLower())) return Results.Conflict(new { message = "Email is already registered." });
-    var u = new AppUser { Email = r.Email.ToLower(), DisplayName = r.DisplayName }; u.PasswordHash = new PasswordHasher<AppUser>().HashPassword(u, r.Password); db.Users.Add(u); await db.SaveChangesAsync(); return Results.Ok(CreateAuth(u, builder.Configuration));
+    if (await db.Users.AnyAsync(u => u.Email == r.Email.ToLower()))
+        return Results.Conflict(new
+        {
+            message = "Email is already registered."
+        });
+    var u = new AppUser { Email = r.Email.ToLower(), DisplayName = r.DisplayName };
+    u.PasswordHash = new PasswordHasher<AppUser>().HashPassword(u, r.Password);
+    db.Users.Add(u);
+    await db.SaveChangesAsync();
+    return Results.Ok(CreateAuth(u, builder.Configuration));
 });
 app.MapPost("/api/auth/login", async (LoginRequest r, AppDbContext db) => { var u = await db.Users.Include(x => x.Interests).SingleOrDefaultAsync(x => x.Email == r.Email.ToLower()); if (u is null || new PasswordHasher<AppUser>().VerifyHashedPassword(u, u.PasswordHash, r.Password) == PasswordVerificationResult.Failed) return Results.Unauthorized(); return Results.Ok(CreateAuth(u, builder.Configuration)); });
 app.MapGet("/api/interests", async (AppDbContext db) => await db.Interests.OrderBy(x => x.Name).ToListAsync());

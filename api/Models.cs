@@ -22,11 +22,21 @@ public class AppUser
     public string Email { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public string PasswordHash { get; set; } = "";
-    public bool IsAdmin { get; set; }
+    public bool IsAdmin
+    {
+        get; set;
+    }
     public ICollection<Interest> Interests { get; set; } = new List<Interest>();
 }
 
-public class Interest { public int Id { get; set; } public string Name { get; set; } = ""; }
+public class Interest
+{
+    public int Id
+    {
+        get; set;
+    }
+    public string Name { get; set; } = "";
+}
 
 public class QuoteImage
 {
@@ -34,9 +44,15 @@ public class QuoteImage
     public string Quote { get; set; } = "";
     public string SourceImageUrl { get; set; } = "";
     public string FinalImageUrl { get; set; } = "";
-    public string? Attribution { get; set; }
+    public string? Attribution
+    {
+        get; set;
+    }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public Guid CreatedById { get; set; }
+    public Guid CreatedById
+    {
+        get; set;
+    }
 }
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
