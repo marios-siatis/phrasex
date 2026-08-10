@@ -7,3 +7,4 @@
 *.tfstate
 *.tfstate.*
 api/appsettings.Development.json
+.phrasex/

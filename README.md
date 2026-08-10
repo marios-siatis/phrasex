@@ -10,6 +10,20 @@ PhraseX is an image-quote discovery app. Members can register, select multiple i
 
 ## Local development
 
+### macOS one-command start
+
+Install Docker Desktop, .NET 8 SDK, and Node.js 20+. Set your Pexels key, make the scripts executable once, and start the stack:
+
+```sh
+export PHRASEX_PEXELS_API_KEY='your-pexels-key'
+chmod +x run-local.sh stop-local.sh
+./run-local.sh
+```
+
+This starts PostgreSQL in Docker and runs the API and web app in the background. Browse to `http://localhost:5173`. Use `./stop-local.sh` to stop everything.
+
+### Manual start
+
 1. Set `api/appsettings.Development.json` values for `Jwt:Key`, `Pexels:ApiKey`, and (optionally) `Storage:LocalPath`.
 2. Start the API: `dotnet run --project api`.
 3. Copy `web/.env.example` to `web/.env`, then run `npm install && npm run dev` in `web/`.
