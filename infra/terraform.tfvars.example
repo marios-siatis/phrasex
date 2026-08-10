@@ -1,0 +1,4 @@
+aws_region     = "eu-west-2"
+environment    = "prod"
+pexels_api_key = "your-pexels-api-key"
+jwt_key        = "replace-with-a-long-random-secret-at-least-32-characters"

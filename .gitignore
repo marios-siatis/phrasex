@@ -1,0 +1,9 @@
+.DS_Store
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.env
+*.tfstate
+*.tfstate.*
+api/appsettings.Development.json
