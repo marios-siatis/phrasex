@@ -168,9 +168,9 @@ function App() {
               <em>Frame the moment.</em>
             </h1>
             <p>Search a visual world made for your next meaningful thought.</p>
-            <button className="gold" onClick={() => search()}>
+            {/* <button className="gold" onClick={() => search()}>
               Explore images <Search size={17} />
-            </button>
+            </button> */}
           </section>
 
           <section className="content">

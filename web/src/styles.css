@@ -137,8 +137,8 @@ nav {
 
 /* ---------- Hero ---------- */
 .hero {
-  min-height: 410px;
-  padding: 88px 12vw;
+  /* min-height: 410px; */
+  padding: 20px 12vw;
   background:
     radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.22) 0, transparent 45%),
     linear-gradient(110deg, #100e1e, #0a0912);
@@ -172,6 +172,7 @@ nav {
 .page h1 {
   font: 700 clamp(44px, 6vw, 76px) / 0.98 'Playfair Display';
   margin: 0;
+  font-size: 3em;
   color: var(--text);
 }
 
