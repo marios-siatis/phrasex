@@ -195,7 +195,10 @@ function App() {
               <div className="quoteGrid">
                 {quotes.map((q) => (
                   <article key={q.id}>
-                    <img src={q.finalImageUrl} alt={q.quote} />
+                    <img
+                      src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
+                      alt={q.quote}
+                    />
                     <p>{q.quote}</p>
                   </article>
                 ))}
