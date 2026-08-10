@@ -49,12 +49,12 @@ if [ -f "$PID_DIR/api.pid" ] || [ -f "$PID_DIR/web.pid" ]; then
   exit 1
 fi
 
-echo "Starting API at http://localhost:5000"
-(
-  cd "$ROOT_DIR/api"
-  ASPNETCORE_URLS=http://localhost:5000 Pexels__ApiKey="$PHRASEX_PEXELS_API_KEY" dotnet run
-) >"$PID_DIR/api.log" 2>&1 &
-echo $! > "$PID_DIR/api.pid"
+# echo "Starting API at http://localhost:5000"
+# (
+#   cd "$ROOT_DIR/api"
+#   ASPNETCORE_URLS=http://localhost:5000 Pexels__ApiKey="$PHRASEX_PEXELS_API_KEY" dotnet run
+# ) >"$PID_DIR/api.log" 2>&1 &
+# echo $! > "$PID_DIR/api.pid"
 
 echo "Starting web app at http://localhost:5173"
 (
