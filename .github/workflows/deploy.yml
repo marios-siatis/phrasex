@@ -1,0 +1,89 @@
+name: Deploy PhraseX
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: phrasex-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-2' }}
+  TF_IN_AUTOMATION: true
+
+jobs:
+  deploy:
+    name: Deploy AWS infrastructure and application
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials using GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Apply infrastructure
+        working-directory: infra
+        env:
+          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
+          TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=phrasex/production.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true"
+          terraform fmt -check -recursive
+          terraform validate
+          terraform apply -auto-approve -input=false
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the API image
+        working-directory: api
+        env:
+          IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY || 'phrasex-prod-api' }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE_URI:$IMAGE_TAG" -t "$IMAGE_URI:latest" .
+          docker push "$IMAGE_URI:$IMAGE_TAG"
+          docker push "$IMAGE_URI:latest"
+
+      - name: Deploy API task revision
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER || 'phrasex-prod' }}
+          SERVICE: api
+        run: aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --force-new-deployment
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build and publish frontend
+        working-directory: web
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          npm ci
+          npm run build
+          aws s3 sync dist/ "s3://${{ secrets.FRONTEND_BUCKET }}" --delete
+
