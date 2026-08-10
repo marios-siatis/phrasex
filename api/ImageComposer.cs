@@ -14,7 +14,10 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
     public async Task<string> ComposeAndStore(string imageUrl, string quote, CancellationToken ct)
     {
         if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) || uri.Host is not "images.pexels.com")
+        {
             throw new ArgumentException("Please select an image returned by Pexels.");
+        }
+
         var bytes = await http.GetByteArrayAsync(uri, ct);
         using var image = Image.Load<Rgba32>(bytes);
         image.Mutate(c =>
@@ -25,7 +28,10 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
 
         var font = SystemFonts.Collection.Families.FirstOrDefault(f => f.Name.Contains("DejaVu", StringComparison.OrdinalIgnoreCase));
         if (string.IsNullOrEmpty(font.Name))
+        {
             throw new InvalidOperationException("No system font is available for rendering.");
+        }
+
         var quoteFont = font.CreateFont(58, FontStyle.Bold);
         var logoFont = font.CreateFont(30, FontStyle.Bold);
         var quoteOptions = new RichTextOptions(quoteFont) { Origin = new PointF(540, 620), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, WrappingLength = 860, TextAlignment = TextAlignment.Center };
