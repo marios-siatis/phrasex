@@ -1,6 +1,8 @@
+using System.IO;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -300,6 +302,118 @@ public class PhraseXController : ControllerBase
                 quote.Attribution,
                 Creator = user.DisplayName
             });
+    }
+
+    [HttpPost("admin/textquotes/upload")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> UploadTextQuotes(IFormFile file)
+    {
+        var user = await CurrentUser();
+
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        if (file is null || file.Length == 0)
+        {
+            return BadRequest(new { message = "A CSV file is required." });
+        }
+
+        using var reader = new StreamReader(file.OpenReadStream());
+        var headerLine = await reader.ReadLineAsync();
+
+        if (headerLine is null)
+        {
+            return BadRequest(new { message = "CSV file is empty." });
+        }
+
+        var headers = ParseCsvLine(headerLine);
+        var quoteIndex = Array.FindIndex(headers, h => h.Equals("quote", StringComparison.OrdinalIgnoreCase));
+        var authorIndex = Array.FindIndex(headers, h => h.Equals("author", StringComparison.OrdinalIgnoreCase));
+        var categoryIndex = Array.FindIndex(headers, h => h.Equals("category", StringComparison.OrdinalIgnoreCase));
+
+        if (quoteIndex < 0 || authorIndex < 0 || categoryIndex < 0)
+        {
+            return BadRequest(new { message = "CSV header must contain Quote, Author, and Category columns." });
+        }
+
+        var imported = new List<TextQuote>();
+
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var values = ParseCsvLine(line);
+            if (values.Length <= Math.Max(quoteIndex, Math.Max(authorIndex, categoryIndex)))
+            {
+                continue;
+            }
+
+            var quoteTextLine = values[quoteIndex].Trim();
+            if (string.IsNullOrWhiteSpace(quoteTextLine))
+            {
+                continue;
+            }
+
+            imported.Add(new TextQuote
+            {
+                Quote = quoteTextLine,
+                Author = values[authorIndex].Trim(),
+                Category = values[categoryIndex].Trim()
+            });
+        }
+
+        if (imported.Count > 0)
+        {
+            _db.TextQuotes.AddRange(imported);
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(new { inserted = imported.Count });
+    }
+
+    private static string[] ParseCsvLine(string line)
+    {
+        var values = new List<string>();
+        var current = new StringBuilder();
+        var inQuotes = false;
+
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+
+            if (c == '"')
+            {
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else
+                {
+                    inQuotes = !inQuotes;
+                }
+
+                continue;
+            }
+
+            if (c == ',' && !inQuotes)
+            {
+                values.Add(current.ToString());
+                current.Clear();
+                continue;
+            }
+
+            current.Append(c);
+        }
+
+        values.Add(current.ToString());
+        return values.ToArray();
     }
 
     // ==========================================

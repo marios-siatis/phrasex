@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<QuoteImage> QuoteImages => Set<QuoteImage>();
+    public DbSet<TextQuote> TextQuotes => Set<TextQuote>();
     public DbSet<SiteBranding> SiteBrandings => Set<SiteBranding>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -42,6 +43,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             .HasMany(q => q.Tags)
             .WithMany(t => t.QuoteImages)
             .UsingEntity(join => join.ToTable("quoteimagetags"));
+
+        b.Entity<TextQuote>().ToTable("textquotes");
+        b.Entity<TextQuote>().Property(x => x.Id).HasColumnName("id");
+        b.Entity<TextQuote>().Property(x => x.Quote).HasColumnName("quote");
+        b.Entity<TextQuote>().Property(x => x.Author).HasColumnName("author");
+        b.Entity<TextQuote>().Property(x => x.Category).HasColumnName("category");
 
         b.Entity<SiteBranding>().ToTable("sitebrandings");
         b.Entity<SiteBranding>().Property(x => x.Id).HasColumnName("id");
@@ -98,6 +105,14 @@ public class QuoteImage
         get; set;
     }
     public AppUser? CreatedBy { get; set; }
+}
+
+public class TextQuote
+{
+    public int Id { get; set; }
+    public string Quote { get; set; } = "";
+    public string Author { get; set; } = "";
+    public string Category { get; set; } = "";
 }
 
 public class SiteBranding

@@ -69,7 +69,7 @@ function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
   const [branding, setBranding] = useState<Branding | null>(null);
-  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding'>('home');
+  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload'>('home');
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -156,6 +156,9 @@ function App() {
               <button className="adminLink" onClick={() => setView('branding')}>
                 Branding
               </button>
+              <button className="adminLink" onClick={() => setView('upload')}>
+                CSV Upload
+              </button>
             </>
           )}
           <button className="avatar" onClick={() => setView('profile')}>
@@ -198,6 +201,10 @@ function App() {
           branding={branding}
           onBrandingSaved={setBranding}
         />
+      )}
+
+      {view === 'upload' && user?.isAdmin && (
+        <UploadCsvPage token={token} />
       )}
 
       {view === 'home' && (
@@ -609,6 +616,81 @@ function Studio({
             {busy ? 'Creating image…' : 'Create quote image'}
           </button>
         </aside>
+      </div>
+    </section>
+  );
+}
+
+function UploadCsvPage({ token }: { token: string }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [inserted, setInserted] = useState<number | null>(null);
+
+  const upload = async () => {
+    if (!file) {
+      setNotice('Choose a CSV file first.');
+      return;
+    }
+
+    setBusy(true);
+    setNotice('');
+    setInserted(null);
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const response = await fetch(`${API}/admin/textquotes/upload`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        throw new Error(errorBody?.message || 'Upload failed.');
+      }
+
+      const result = await response.json();
+      setInserted(result.inserted ?? 0);
+      setNotice(`Imported ${result.inserted ?? 0} quotes.`);
+      setFile(null);
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="page studio">
+      <p className="eyebrow">CSV IMPORT</p>
+      <h1>Upload text quotes</h1>
+      <p className="intro">Import plain quote text entries into PhraseX from a CSV file.</p>
+
+      <div className="studioSection">
+        <label>
+          CSV file
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+        </label>
+
+        <p className="small">
+          The CSV must include headers: <strong>Quote</strong>, <strong>Author</strong>, and <strong>Category</strong>.
+        </p>
+
+        <button type="button" className="gold" onClick={upload} disabled={busy}>
+          {busy ? 'Uploading…' : 'Upload CSV'}
+        </button>
+
+        {notice && <p className="small">{notice}</p>}
+        {inserted !== null && <p className="small">Imported {inserted} text quotes.</p>}
       </div>
     </section>
   );

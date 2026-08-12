@@ -134,6 +134,12 @@ await using (var scope = app.Services.CreateAsyncScope())
         quoteimagesid uuid NOT NULL,
         tagsid integer NOT NULL,
         PRIMARY KEY (quoteimagesid, tagsid)
+    );
+    CREATE TABLE IF NOT EXISTS public.textquotes (
+        id serial PRIMARY KEY,
+        quote text NOT NULL DEFAULT '',
+        author text NOT NULL DEFAULT '',
+        category text NOT NULL DEFAULT ''
     );");
 
     var shouldSave = false;
