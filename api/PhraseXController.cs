@@ -232,6 +232,16 @@ public class PhraseXController : ControllerBase
             return BadRequest(new { message = "Category does not exist." });
         }
 
+        var duplicateQuoteExists = await _db.QuoteImages.AnyAsync(q =>
+            q.Quote.ToLower() == quoteText.ToLower() &&
+            q.Author.ToLower() == authorText.ToLower() &&
+            q.Category.ToLower() == categoryText.ToLower());
+
+        if (duplicateQuoteExists)
+        {
+            return BadRequest(new { message = "This quote already exists and was not saved." });
+        }
+
         var branding = await GetBrandingAsync();
         var logoName = string.IsNullOrWhiteSpace(request.LogoName)
             ? branding?.LogoName
@@ -338,6 +348,13 @@ public class PhraseXController : ControllerBase
             return BadRequest(new { message = "CSV header must contain Quote, Author, and Category columns." });
         }
 
+        var existingTextQuotes = await _db.TextQuotes
+            .Select(t => new { t.Quote, t.Author, t.Category })
+            .ToListAsync();
+
+        var knownKeys = new HashSet<string>(existingTextQuotes
+            .Select(t => NormalizeQuoteKey(t.Quote, t.Author, t.Category)));
+
         var imported = new List<TextQuote>();
 
         while (!reader.EndOfStream)
@@ -360,11 +377,21 @@ public class PhraseXController : ControllerBase
                 continue;
             }
 
+            var authorTextLine = values[authorIndex].Trim();
+            var categoryTextLine = values[categoryIndex].Trim();
+            var quoteKey = NormalizeQuoteKey(quoteTextLine, authorTextLine, categoryTextLine);
+
+            if (knownKeys.Contains(quoteKey))
+            {
+                continue;
+            }
+
+            knownKeys.Add(quoteKey);
             imported.Add(new TextQuote
             {
                 Quote = quoteTextLine,
-                Author = values[authorIndex].Trim(),
-                Category = values[categoryIndex].Trim()
+                Author = authorTextLine,
+                Category = categoryTextLine
             });
         }
 
@@ -414,6 +441,11 @@ public class PhraseXController : ControllerBase
 
         values.Add(current.ToString());
         return values.ToArray();
+    }
+
+    private static string NormalizeQuoteKey(string quote, string author, string category)
+    {
+        return $"{quote.Trim().ToLowerInvariant()}|{author.Trim().ToLowerInvariant()}|{category.Trim().ToLowerInvariant()}";
     }
 
     // ==========================================
