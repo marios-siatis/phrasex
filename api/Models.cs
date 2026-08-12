@@ -11,9 +11,28 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.HasDefaultSchema("public");
+
         b.Entity<AppUser>().HasIndex(x => x.Email).IsUnique();
         b.Entity<Interest>().HasIndex(x => x.Name).IsUnique();
         b.Entity<AppUser>().HasMany(x => x.Interests).WithMany();
+
+        b.Entity<QuoteImage>().ToTable("quoteimages");
+        b.Entity<QuoteImage>().Property(x => x.Id).HasColumnName("id");
+        b.Entity<QuoteImage>().Property(x => x.Quote).HasColumnName("quote");
+        b.Entity<QuoteImage>().Property(x => x.Author).HasColumnName("author");
+        b.Entity<QuoteImage>().Property(x => x.LogoName).HasColumnName("logoname");
+        b.Entity<QuoteImage>().Property(x => x.SourceImageUrl).HasColumnName("sourceimageurl");
+        b.Entity<QuoteImage>().Property(x => x.FinalImageUrl).HasColumnName("finalimageurl");
+        b.Entity<QuoteImage>().Property(x => x.Attribution).HasColumnName("attribution");
+        b.Entity<QuoteImage>().Property(x => x.CreatedAt).HasColumnName("createdat");
+        b.Entity<QuoteImage>().Property(x => x.CreatedById).HasColumnName("createdbyid");
+
+        b.Entity<SiteBranding>().ToTable("sitebrandings");
+        b.Entity<SiteBranding>().Property(x => x.Id).HasColumnName("id");
+        b.Entity<SiteBranding>().Property(x => x.Title).HasColumnName("title");
+        b.Entity<SiteBranding>().Property(x => x.Description).HasColumnName("description");
+        b.Entity<SiteBranding>().Property(x => x.LogoName).HasColumnName("logoname");
     }
 }
 

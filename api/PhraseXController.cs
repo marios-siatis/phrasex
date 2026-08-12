@@ -205,15 +205,6 @@ public class PhraseXController : ControllerBase
                 });
         }
 
-        if (string.IsNullOrWhiteSpace(request.LogoName))
-        {
-            return BadRequest(
-                new
-                {
-                    message = "A logo is required."
-                });
-        }
-
         if (string.IsNullOrWhiteSpace(request.ImageUrl))
         {
             return BadRequest(
@@ -226,17 +217,31 @@ public class PhraseXController : ControllerBase
         var quoteText = request.Quote.Trim();
         var authorText = request.Author.Trim();
 
+        var branding = await GetBrandingAsync();
+        var logoName = string.IsNullOrWhiteSpace(request.LogoName)
+            ? branding?.LogoName
+            : request.LogoName.Trim();
+
+        if (string.IsNullOrWhiteSpace(logoName))
+        {
+            return BadRequest(
+                new
+                {
+                    message = "A logo is required. Set a default branding logo or choose one for this quote."
+                });
+        }
+
         var finalUrl = await _imageComposer.ComposeAndStore(
             request.ImageUrl,
             quoteText,
-            request.LogoName,
+            logoName,
             cancellationToken);
 
         var quote = new QuoteImage
         {
             Quote = quoteText,
             Author = authorText,
-            LogoName = request.LogoName ?? string.Empty,
+            LogoName = logoName,
             SourceImageUrl = request.ImageUrl,
             FinalImageUrl = finalUrl,
             Attribution = request.Attribution,
@@ -417,6 +422,11 @@ public class PhraseXController : ControllerBase
         {
             return null;
         }
+    }
+
+    private async Task<SiteBranding?> GetBrandingAsync()
+    {
+        return await _db.SiteBrandings.FirstOrDefaultAsync();
     }
 
     private AuthResponse CreateAuth(AppUser user)

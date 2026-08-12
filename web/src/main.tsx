@@ -437,11 +437,13 @@ function Studio({
   const [chosen, setChosen] = useState<Photo | null>(null);
   const [quote, setQuote] = useState('');
   const [author, setAuthor] = useState('');
-  const [selectedLogo, setSelectedLogo] = useState<string | null>(branding?.logoName ?? null);
+  const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const effectiveLogo = selectedLogo ?? branding?.logoName;
+
   useEffect(() => {
-    setSelectedLogo((current) => current ?? branding?.logoName ?? null);
+    setSelectedLogo((current) => current ?? null);
   }, [branding]);
 
   const search = async (e: FormEvent) => {
@@ -450,7 +452,7 @@ function Studio({
   };
 
   const create = async () => {
-    if (!chosen || !quote || !author || !selectedLogo) return;
+    if (!chosen || !quote || !author) return;
     setBusy(true);
     try {
       onCreated(
@@ -460,7 +462,7 @@ function Studio({
             imageUrl: chosen.thumbnailUrl,
             quote,
             author,
-            logoName: selectedLogo,
+            logoName: effectiveLogo,
           }),
         })
       );
@@ -512,14 +514,14 @@ function Studio({
           </label>
 
           <label>
-            Logo *
+            Logo
             <div className="logoGrid">
               {logos.length ? (
                 logos.map((logo) => (
                   <button
                     type="button"
                     key={logo.name}
-                    className={selectedLogo === logo.name ? 'chosen' : ''}
+                    className={effectiveLogo === logo.name ? 'chosen' : ''}
                     onClick={() => setSelectedLogo(logo.name)}
                   >
                     <img src={logo.url} alt={logo.name} />
@@ -529,6 +531,11 @@ function Studio({
                 <span className="small">No logos available yet.</span>
               )}
             </div>
+            <p className="small">
+              {effectiveLogo
+                ? `Using ${effectiveLogo} as the selected logo.`
+                : 'Select a logo or save one as the default branding logo.'}
+            </p>
           </label>
 
           <label>
