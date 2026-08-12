@@ -196,7 +196,35 @@ public class PhraseXController : ControllerBase
                 });
         }
 
+        if (string.IsNullOrWhiteSpace(request.Author))
+        {
+            return BadRequest(
+                new
+                {
+                    message = "An author is required."
+                });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.LogoName))
+        {
+            return BadRequest(
+                new
+                {
+                    message = "A logo is required."
+                });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ImageUrl))
+        {
+            return BadRequest(
+                new
+                {
+                    message = "A source image is required."
+                });
+        }
+
         var quoteText = request.Quote.Trim();
+        var authorText = request.Author.Trim();
 
         var finalUrl = await _imageComposer.ComposeAndStore(
             request.ImageUrl,
@@ -207,6 +235,7 @@ public class PhraseXController : ControllerBase
         var quote = new QuoteImage
         {
             Quote = quoteText,
+            Author = authorText,
             SourceImageUrl = request.ImageUrl,
             FinalImageUrl = finalUrl,
             Attribution = request.Attribution,
@@ -224,9 +253,10 @@ public class PhraseXController : ControllerBase
             {
                 quote.Id,
                 quote.Quote,
+                quote.Author,
                 quote.FinalImageUrl,
                 quote.Attribution,
-                Author = user.DisplayName
+                Creator = user.DisplayName
             });
     }
 
@@ -282,9 +312,10 @@ public class PhraseXController : ControllerBase
             {
                 q.Id,
                 q.Quote,
+                q.Author,
                 q.FinalImageUrl,
                 q.Attribution,
-                Author = q.CreatedBy != null ? q.CreatedBy.DisplayName : "Unknown"
+                Creator = q.CreatedBy != null ? q.CreatedBy.DisplayName : "Unknown"
             })
             .ToListAsync();
 

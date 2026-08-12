@@ -404,6 +404,7 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [chosen, setChosen] = useState<Photo | null>(null);
   const [quote, setQuote] = useState('');
+  const [author, setAuthor] = useState('');
   const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -413,7 +414,7 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
   };
 
   const create = async () => {
-    if (!chosen || !quote) return;
+    if (!chosen || !quote || !author || !selectedLogo) return;
     setBusy(true);
     try {
       onCreated(
@@ -422,7 +423,7 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
           body: JSON.stringify({
             imageUrl: chosen.thumbnailUrl,
             quote,
-            attribution: `Photo by ${chosen.photographer} on Pexels`,
+            author,
             logoName: selectedLogo,
           }),
         })
@@ -464,7 +465,18 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
           </div>
 
           <label>
-            Logo
+            Author *
+            <input
+              required
+              type="text"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+              placeholder="Who said it?"
+            />
+          </label>
+
+          <label>
+            Logo *
             <div className="logoGrid">
               {logos.length ? (
                 logos.map((logo) => (
@@ -484,8 +496,9 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
           </label>
 
           <label>
-            Quote text
+            Quote text *
             <textarea
+              required
               maxLength={260}
               value={quote}
               onChange={(e) => setQuote(e.target.value)}
@@ -497,7 +510,7 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
             The quote is centered on the image. The PhraseX wordmark is added underneath.
           </p>
 
-          <button disabled={!chosen || !quote || busy} className="gold" onClick={create}>
+          <button disabled={!chosen || !quote || !author || !selectedLogo || busy} className="gold" onClick={create}>
             {busy ? 'Creating image…' : 'Create quote image'}
           </button>
         </aside>

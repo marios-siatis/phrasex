@@ -42,6 +42,7 @@ public class QuoteImage
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Quote { get; set; } = "";
+    public string Author { get; set; } = "";
     public string SourceImageUrl { get; set; } = "";
     public string FinalImageUrl { get; set; } = "";
     public string? Attribution
@@ -59,6 +60,6 @@ public class QuoteImage
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
 public record ProfileRequest(string DisplayName, int[] InterestIds);
-public record QuoteRequest(string ImageUrl, string Quote, string? Attribution, string? LogoName);
+public record QuoteRequest(string ImageUrl, string Quote, string Author, string? Attribution, string? LogoName);
 public record AuthResponse(string Token, UserDto User);
 public record UserDto(Guid Id, string Email, string DisplayName, bool IsAdmin, IEnumerable<int> InterestIds);
