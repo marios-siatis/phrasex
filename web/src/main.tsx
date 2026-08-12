@@ -4,6 +4,7 @@ import { Heart, Search, Sparkles, UserRound, X } from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE = API.replace(/\/api\/?$/, '');
 
 type Interest = { id: number; name: string };
 
@@ -66,9 +67,11 @@ function App() {
   useEffect(() => {
     request('/interests').then(setInterests);
     request('/quotes').then(setQuotes);
-    request('/logos').then((items: string[]) =>
-      setLogos(items.map((name) => ({ name, url: `${API}/logos/${encodeURIComponent(name)}` })))
-    );
+    request('/logos')
+      .then((items: string[]) =>
+        setLogos(items.map((name) => ({ name, url: `${API_BASE}/logos/${encodeURIComponent(name)}` })))
+      )
+      .catch(() => setLogos([]));
   }, []);
 
   useEffect(() => {
