@@ -8,3 +8,5 @@
 *.tfstate.*
 api/appsettings.Development.json
 .phrasex/
+
+**/generated/
