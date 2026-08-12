@@ -210,7 +210,8 @@ public class PhraseXController : ControllerBase
             SourceImageUrl = request.ImageUrl,
             FinalImageUrl = finalUrl,
             Attribution = request.Attribution,
-            CreatedById = user.Id
+            CreatedById = user.Id,
+            CreatedBy = user
         };
 
         _db.QuoteImages.Add(quote);
@@ -219,12 +220,19 @@ public class PhraseXController : ControllerBase
 
         return Created(
             $"/api/quotes/{quote.Id}",
-            quote);
+            new
+            {
+                quote.Id,
+                quote.Quote,
+                quote.FinalImageUrl,
+                quote.Attribution,
+                Author = user.DisplayName
+            });
     }
 
     // ==========================================
     // Quotes
-    // ==========================================
+    // ==================================
 
     [HttpGet("logos")]
     public IActionResult GetLogos()
@@ -245,11 +253,39 @@ public class PhraseXController : ControllerBase
     }
 
     [HttpGet("quotes")]
-    public async Task<IActionResult> GetQuotes()
+    public async Task<IActionResult> GetQuotes([FromQuery] string? q)
     {
-        var quotes = await _db.QuoteImages
+        var quoteQuery = _db.QuoteImages
+            .Include(qt => qt.CreatedBy)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var normalized = q.Trim().ToLowerInvariant();
+            var user = await GetCurrentUserOrNull();
+            var interestMatchesQuery = user?.Interests
+                .Any(i => i.Name.Contains(normalized, StringComparison.OrdinalIgnoreCase))
+                ?? false;
+
+            if (!interestMatchesQuery)
+            {
+                quoteQuery = quoteQuery.Where(quote =>
+                    quote.Quote.ToLower().Contains(normalized) ||
+                    (quote.CreatedBy != null && quote.CreatedBy.DisplayName.ToLower().Contains(normalized)));
+            }
+        }
+
+        var quotes = await quoteQuery
             .OrderByDescending(q => q.CreatedAt)
             .Take(30)
+            .Select(q => new
+            {
+                q.Id,
+                q.Quote,
+                q.FinalImageUrl,
+                q.Attribution,
+                Author = q.CreatedBy != null ? q.CreatedBy.DisplayName : "Unknown"
+            })
             .ToListAsync();
 
         return Ok(quotes);
@@ -273,6 +309,18 @@ public class PhraseXController : ControllerBase
             .Include(x => x.Interests)
             .SingleAsync(
                 u => u.Id == Guid.Parse(userId));
+    }
+
+    private async Task<AppUser?> GetCurrentUserOrNull()
+    {
+        try
+        {
+            return await CurrentUser();
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private AuthResponse CreateAuth(AppUser user)

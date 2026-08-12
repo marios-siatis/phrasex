@@ -32,6 +32,7 @@ type Quote = {
   quote: string;
   finalImageUrl: string;
   attribution?: string;
+  author: string;
 };
 
 const request = async (path: string, token?: string, options?: RequestInit) => {
@@ -90,7 +91,13 @@ function App() {
     if (!query.trim()) return;
 
     try {
-      setPhotos(await request(`/images/search?q=${encodeURIComponent(query)}`, token));
+      const [imageResults, quoteResults] = await Promise.all([
+        request(`/images/search?q=${encodeURIComponent(query)}`, token).catch(() => []),
+        request(`/quotes?q=${encodeURIComponent(query)}`, token),
+      ]);
+
+      setPhotos(imageResults);
+      setQuotes(quoteResults);
     } catch (err) {
       setNotice((err as Error).message);
     }
@@ -211,6 +218,7 @@ function App() {
                       alt={q.quote}
                     />
                     <p>{q.quote}</p>
+                    <p className="quoteAuthor">— {q.author}</p>
                   </article>
                 ))}
                 {!quotes.length && (
