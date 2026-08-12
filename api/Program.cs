@@ -38,14 +38,11 @@ builder.Services
         {
             ValidateIssuer = true,
             ValidIssuer = jwt["Issuer"],
-
             ValidateAudience = true,
             ValidAudience = jwt["Audience"],
-
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(jwt["Key"]!)),
-
             ValidateLifetime = true
         };
     });
@@ -60,7 +57,7 @@ builder.Services.AddCors(options =>
                 builder.Configuration
                     .GetSection("Cors:Origins")
                     .Get<string[]>()
-                    ?? ["http://localhost:5173"])
+                ?? ["http://localhost:5173"])
             .AllowAnyHeader()
             .AllowAnyMethod()));
 
@@ -84,7 +81,6 @@ app.UseStaticFiles(
     {
         FileProvider = new PhysicalFileProvider(
             localImageDirectory),
-
         RequestPath = "/generated"
     });
 
@@ -104,31 +100,30 @@ await using (var scope = app.Services.CreateAsyncScope())
 
     await db.Database.EnsureCreatedAsync();
 
+    await db.Database.ExecuteSqlRawAsync(@"
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'QuoteImages'
+              AND column_name = 'Author'
+        ) THEN
+            ALTER TABLE ""QuoteImages"" ADD COLUMN ""Author"" text NOT NULL DEFAULT '';
+        END IF;
+    END
+    $$;");
+    
     if (!await db.Interests.AnyAsync())
     {
         db.Interests.AddRange(
             new[]
-            {
-                "Love",
-                "Relationships",
-                "Inspiration",
-                "Mindfulness",
-                "Success",
-                "Friendship",
-                "Motivation",
-                "Gratitude"
-            }
-            .Select(name => new Interest
-            {
-                Name = name
-            }));
+                {
+                    "Love", "Relationships", "Inspiration", "Mindfulness", "Success", "Friendship", "Motivation",
+                    "Gratitude"
+                }
+                .Select(name => new Interest { Name = name }));
 
-        var admin = new AppUser
-        {
-            Email = "admin@phrasex.local",
-            DisplayName = "PhraseX Admin",
-            IsAdmin = true
-        };
+        var admin = new AppUser { Email = "admin@phrasex.local", DisplayName = "PhraseX Admin", IsAdmin = true };
 
         admin.PasswordHash =
             new PasswordHasher<AppUser>()
