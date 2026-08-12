@@ -451,6 +451,24 @@ textarea {
   margin: auto;
 }
 
+.studioSection {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.studioSection h2 {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 2.5vw, 34px);
+}
+
+.studioSection p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
 .studioLayout {
   display: grid;
   grid-template-columns: 1.5fr 0.8fr;

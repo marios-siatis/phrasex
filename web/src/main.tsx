@@ -193,14 +193,11 @@ function App() {
           <section className="hero">
             <p className="eyebrow">WORDS WORTH KEEPING</p>
             <h1>
-              Find a feeling.
+              {branding?.title ?? 'Find a feeling.'}
               <br />
-              <em>Frame the moment.</em>
+              <em>{branding?.description ?? 'Frame the moment.'}</em>
             </h1>
-            <p>Search a visual world made for your next meaningful thought.</p>
-            {/* <button className="gold" onClick={() => search()}>
-              Explore images <Search size={17} />
-            </button> */}
+            <p>{branding?.description ?? 'Search a visual world made for your next meaningful thought.'}</p>
           </section>
 
           <section className="content">

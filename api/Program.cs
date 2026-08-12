@@ -101,14 +101,16 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.EnsureCreatedAsync();
 
     await db.Database.ExecuteSqlRawAsync(@"
-    ALTER TABLE IF EXISTS ""QuoteImages"" ADD COLUMN IF NOT EXISTS ""Author"" text NOT NULL DEFAULT '';
-    ALTER TABLE IF EXISTS ""QuoteImages"" ADD COLUMN IF NOT EXISTS ""LogoName"" text NOT NULL DEFAULT '';
-    CREATE TABLE IF NOT EXISTS ""SiteBrandings"" (
+    ALTER TABLE IF EXISTS quoteimages ADD COLUMN IF NOT EXISTS author text NOT NULL DEFAULT '';
+    ALTER TABLE IF EXISTS quoteimages ADD COLUMN IF NOT EXISTS logoname text NOT NULL DEFAULT '';
+    CREATE TABLE IF NOT EXISTS sitebrandings (
         id uuid PRIMARY KEY,
         title text NOT NULL DEFAULT '',
         description text NOT NULL DEFAULT '',
         logoname text NOT NULL DEFAULT ''
     );");
+
+    var shouldSave = false;
 
     if (!await db.SiteBrandings.AnyAsync())
     {
@@ -118,6 +120,7 @@ await using (var scope = app.Services.CreateAsyncScope())
             Description = "Create meaningful branded quote images.",
             LogoName = "phrasex.jpg"
         });
+        shouldSave = true;
     }
 
     if (!await db.Interests.AnyAsync())
@@ -137,7 +140,11 @@ await using (var scope = app.Services.CreateAsyncScope())
                 .HashPassword(admin, "ChangeMe123!");
 
         db.Users.Add(admin);
+        shouldSave = true;
+    }
 
+    if (shouldSave)
+    {
         await db.SaveChangesAsync();
     }
 }
