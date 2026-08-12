@@ -1,5 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.AspNetCore.Hosting;
 using SixLabors.Fonts;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Drawing.Processing;
@@ -9,9 +10,11 @@ using SixLabors.ImageSharp.Processing;
 
 namespace PhraseX.Api;
 
-public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazonS3 s3)
+public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazonS3 s3, IWebHostEnvironment environment)
 {
-    public async Task<string> ComposeAndStore(string imageUrl, string quote, CancellationToken ct)
+    private readonly IWebHostEnvironment _environment = environment;
+
+    public async Task<string> ComposeAndStore(string imageUrl, string quote, string? logoName, CancellationToken ct)
     {
         if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) || uri.Host is not "images.pexels.com")
         {
@@ -54,14 +57,12 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
             }
         }
 
-
         if (string.IsNullOrEmpty(font.Name))
         {
             throw new InvalidOperationException("No system font is available for rendering.");
         }
 
         var quoteFont = font.CreateFont(58, FontStyle.Bold);
-        var logoFont = font.CreateFont(30, FontStyle.Bold);
         var quoteOptions = new RichTextOptions(quoteFont)
         {
             Origin = new PointF(540, 620),
@@ -70,16 +71,31 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
             WrappingLength = 860,
             TextAlignment = TextAlignment.Center
         };
-        var logoOptions = new RichTextOptions(logoFont)
+
+        var safeLogoName = string.IsNullOrWhiteSpace(logoName)
+            ? "phrasex.jpg"
+            : Path.GetFileName(logoName);
+
+        var logoFile = Path.Combine(_environment.ContentRootPath, "logos", safeLogoName);
+
+        if (!File.Exists(logoFile))
         {
-            Origin = new PointF(540, 1180),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
+            throw new ArgumentException("The selected logo could not be found.");
+        }
+
+        using var logo = Image.Load<Rgba32>(logoFile);
+        var logoWidth = Math.Min(360, image.Width / 3);
+        var logoHeight = logo.Width > 0
+            ? (int)Math.Round(logoWidth * (logo.Height / (float)logo.Width))
+            : logoWidth;
+        logo.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(logoWidth, logoHeight), Mode = ResizeMode.Max }));
+
+        var logoPosition = new Point((image.Width - logoWidth) / 2, image.Height - logoHeight - 60);
+
         image.Mutate(c =>
         {
             c.DrawText(quoteOptions, quote, Color.White);
-            c.DrawText(logoOptions, "PHRASEX", Color.FromRgba(255, 255, 255, 220));
+            c.DrawImage(logo, logoPosition, 1f);
         });
 
         await using var output = new MemoryStream();

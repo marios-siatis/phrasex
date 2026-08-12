@@ -58,6 +58,6 @@ public class QuoteImage
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
 public record ProfileRequest(string DisplayName, int[] InterestIds);
-public record QuoteRequest(string ImageUrl, string Quote, string? Attribution);
+public record QuoteRequest(string ImageUrl, string Quote, string? Attribution, string? LogoName);
 public record AuthResponse(string Token, UserDto User);
 public record UserDto(Guid Id, string Email, string DisplayName, bool IsAdmin, IEnumerable<int> InterestIds);

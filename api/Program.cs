@@ -88,6 +88,15 @@ app.UseStaticFiles(
         RequestPath = "/generated"
     });
 
+// Logo assets for quote branding
+app.UseStaticFiles(
+    new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(
+            Path.Combine(builder.Environment.ContentRootPath, "logos")),
+        RequestPath = "/logos"
+    });
+
 // Database initialization
 await using (var scope = app.Services.CreateAsyncScope())
 {

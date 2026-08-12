@@ -5,6 +5,8 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PID_DIR="$ROOT_DIR/.phrasex"
 cd "$ROOT_DIR"
 
+PHRASEX_PEXELS_API_KEY="3GndEg2kex7dCCIRXEU0HuX08P0wkkitVGLrtqYTxEMvpcnPOwjYNJua"
+
 if [ -z "${PHRASEX_PEXELS_API_KEY:-}" ]; then
   echo "Missing PHRASEX_PEXELS_API_KEY."
   echo "Get a key at https://www.pexels.com/api/ then run:"

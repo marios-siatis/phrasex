@@ -22,7 +22,10 @@ type Photo = {
   url: string;
   thumbnailUrl: string;
 };
-
+type Logo = {
+  name: string;
+  url: string;
+};
 type Quote = {
   id: string;
   quote: string;
@@ -55,6 +58,7 @@ function App() {
   const [query, setQuery] = useState('inspiration');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [logos, setLogos] = useState<Logo[]>([]);
   const [view, setView] = useState<'home' | 'profile' | 'admin'>('home');
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
@@ -62,6 +66,9 @@ function App() {
   useEffect(() => {
     request('/interests').then(setInterests);
     request('/quotes').then(setQuotes);
+    request('/logos').then((items: string[]) =>
+      setLogos(items.map((name) => ({ name, url: `${API}/logos/${encodeURIComponent(name)}` })))
+    );
   }, []);
 
   useEffect(() => {
@@ -150,6 +157,7 @@ function App() {
       {view === 'admin' && user?.isAdmin && (
         <Studio
           token={token}
+          logos={logos}
           onCreated={(q: Quote) => {
             setQuotes([q, ...quotes]);
             setView('home');
@@ -380,11 +388,12 @@ function Profile({
   );
 }
 
-function Studio({ token, onCreated }: { token: string; onCreated: (q: Quote) => void }) {
+function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onCreated: (q: Quote) => void }) {
   const [query, setQuery] = useState('love');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [chosen, setChosen] = useState<Photo | null>(null);
   const [quote, setQuote] = useState('');
+  const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const search = async (e: FormEvent) => {
@@ -403,6 +412,7 @@ function Studio({ token, onCreated }: { token: string; onCreated: (q: Quote) => 
             imageUrl: chosen.thumbnailUrl,
             quote,
             attribution: `Photo by ${chosen.photographer} on Pexels`,
+            logoName: selectedLogo,
           }),
         })
       );
@@ -441,6 +451,26 @@ function Studio({ token, onCreated }: { token: string; onCreated: (q: Quote) => 
           <div className="preview">
             {chosen ? <img src={chosen.thumbnailUrl} /> : <span>Select a Pexels image</span>}
           </div>
+
+          <label>
+            Logo
+            <div className="logoGrid">
+              {logos.length ? (
+                logos.map((logo) => (
+                  <button
+                    type="button"
+                    key={logo.name}
+                    className={selectedLogo === logo.name ? 'chosen' : ''}
+                    onClick={() => setSelectedLogo(logo.name)}
+                  >
+                    <img src={logo.url} alt={logo.name} />
+                  </button>
+                ))
+              ) : (
+                <span className="small">No logos available yet.</span>
+              )}
+            </div>
+          </label>
 
           <label>
             Quote text

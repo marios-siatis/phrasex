@@ -17,17 +17,20 @@ public class PhraseXController : ControllerBase
     private readonly IConfiguration _configuration;
     private readonly PexelsClient _pexelsClient;
     private readonly ImageComposer _imageComposer;
+    private readonly IWebHostEnvironment _environment;
 
     public PhraseXController(
         AppDbContext db,
         IConfiguration configuration,
         PexelsClient pexelsClient,
-        ImageComposer imageComposer)
+        ImageComposer imageComposer,
+        IWebHostEnvironment environment)
     {
         _db = db;
         _configuration = configuration;
         _pexelsClient = pexelsClient;
         _imageComposer = imageComposer;
+        _environment = environment;
     }
 
     // ==========================================
@@ -198,6 +201,7 @@ public class PhraseXController : ControllerBase
         var finalUrl = await _imageComposer.ComposeAndStore(
             request.ImageUrl,
             quoteText,
+            request.LogoName,
             cancellationToken);
 
         var quote = new QuoteImage
@@ -221,6 +225,24 @@ public class PhraseXController : ControllerBase
     // ==========================================
     // Quotes
     // ==========================================
+
+    [HttpGet("logos")]
+    public IActionResult GetLogos()
+    {
+        var logosPath = Path.Combine(_environment.ContentRootPath, "logos");
+
+        if (!Directory.Exists(logosPath))
+        {
+            return Ok(Array.Empty<string>());
+        }
+
+        var logos = Directory.EnumerateFiles(logosPath)
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToArray();
+
+        return Ok(logos);
+    }
 
     [HttpGet("quotes")]
     public async Task<IActionResult> GetQuotes()
