@@ -377,6 +377,9 @@ public class PhraseXController : ControllerBase
             .Select(t => new { t.Quote, t.Author, t.Category })
             .ToListAsync();
 
+        // Keep track of duplicates so the frontend can show the admin
+        // exactly which CSV rows were skipped.
+        var duplicates = new List<object>();
         var imported = new List<TextQuote>();
 
         while (!reader.EndOfStream)
@@ -411,6 +414,13 @@ public class PhraseXController : ControllerBase
 
             if (isDuplicate)
             {
+                duplicates.Add(new
+                {
+                    quote = quoteTextLine,
+                    author = authorTextLine,
+                    category = categoryTextLine
+                });
+
                 continue;
             }
 
@@ -428,7 +438,11 @@ public class PhraseXController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        return Ok(new { inserted = imported.Count });
+        return Ok(new
+        {
+            inserted = imported.Count,
+            duplicates
+        });
     }
 
     private static string[] ParseCsvLine(string line)

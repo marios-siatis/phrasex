@@ -663,20 +663,29 @@ function Studio({
 }
 
 function UploadCsvPage({ token }: { token: string }) {
+  type DuplicateQuote = {
+    quote: string;
+    author: string;
+    category: string;
+  };
+
   const [file, setFile] = useState<File | null>(null);
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [inserted, setInserted] = useState<number | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateQuote[]>([]);
 
   const upload = async () => {
     if (!file) {
       setNotice('Choose a CSV file first.');
+      setDuplicates([]);
       return;
     }
 
     setBusy(true);
     setNotice('');
     setInserted(null);
+    setDuplicates([]);
 
     const form = new FormData();
     form.append('file', file);
@@ -696,8 +705,22 @@ function UploadCsvPage({ token }: { token: string }) {
       }
 
       const result = await response.json();
+      const duplicateQuotes: DuplicateQuote[] = Array.isArray(result.duplicates)
+        ? result.duplicates
+        : [];
+
       setInserted(result.inserted ?? 0);
-      setNotice(`Imported ${result.inserted ?? 0} quotes.`);
+      setDuplicates(duplicateQuotes);
+
+      if (duplicateQuotes.length > 0) {
+        setNotice(
+          `Imported ${result.inserted ?? 0} quotes. ` +
+          `${duplicateQuotes.length} duplicate${duplicateQuotes.length === 1 ? '' : 's'} skipped.`
+        );
+      } else {
+        setNotice(`Imported ${result.inserted ?? 0} quotes. No duplicates found.`);
+      }
+
       setFile(null);
     } catch (err) {
       setNotice((err as Error).message);
@@ -718,7 +741,12 @@ function UploadCsvPage({ token }: { token: string }) {
           <input
             type="file"
             accept=".csv,text/csv"
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setNotice('');
+              setInserted(null);
+              setDuplicates([]);
+            }}
           />
         </label>
 
@@ -732,6 +760,50 @@ function UploadCsvPage({ token }: { token: string }) {
 
         {notice && <p className="small">{notice}</p>}
         {inserted !== null && <p className="small">Imported {inserted} text quotes.</p>}
+
+        {duplicates.length > 0 && (
+          <div
+            role="alert"
+            style={{
+              marginTop: '24px',
+              padding: '18px',
+              border: '1px solid rgba(220, 38, 38, 0.35)',
+              borderRadius: '10px',
+              background: 'rgba(220, 38, 38, 0.06)',
+            }}
+          >
+            <h3
+              style={{
+                color: '#dc2626',
+                margin: '0 0 14px',
+              }}
+            >
+              Duplicate quotes skipped ({duplicates.length})
+            </h3>
+
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: '22px',
+                color: '#dc2626',
+              }}
+            >
+              {duplicates.map((duplicate, index) => (
+                <li
+                  key={`${duplicate.quote}-${index}`}
+                  style={{ marginBottom: '14px' }}
+                >
+                  <strong>{duplicate.quote}</strong>
+
+                  <div style={{ marginTop: '4px' }}>
+                    — {duplicate.author}
+                    {duplicate.category ? ` · ${duplicate.category}` : ''}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );
