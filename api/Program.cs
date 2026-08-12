@@ -116,6 +116,7 @@ await using (var scope = app.Services.CreateAsyncScope())
         id uuid PRIMARY KEY,
         quote text NOT NULL DEFAULT '',
         author text NOT NULL DEFAULT '',
+        category text NOT NULL DEFAULT '',
         logoname text NOT NULL DEFAULT '',
         sourceimageurl text NOT NULL DEFAULT '',
         finalimageurl text NOT NULL DEFAULT '',

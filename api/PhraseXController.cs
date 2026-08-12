@@ -216,6 +216,7 @@ public class PhraseXController : ControllerBase
 
         var quoteText = request.Quote.Trim();
         var authorText = request.Author.Trim();
+        var categoryText = request.Category?.Trim() ?? string.Empty;
 
         var branding = await GetBrandingAsync();
         var logoName = string.IsNullOrWhiteSpace(request.LogoName)
@@ -241,6 +242,7 @@ public class PhraseXController : ControllerBase
         {
             Quote = quoteText,
             Author = authorText,
+            Category = categoryText,
             LogoName = logoName,
             SourceImageUrl = request.ImageUrl,
             FinalImageUrl = finalUrl,
@@ -361,18 +363,11 @@ public class PhraseXController : ControllerBase
         if (!string.IsNullOrWhiteSpace(q))
         {
             var normalized = q.Trim().ToLowerInvariant();
-            var user = await GetCurrentUserOrNull();
-            var interestMatchesQuery = user?.Interests
-                .Any(i => i.Name.Contains(normalized, StringComparison.OrdinalIgnoreCase))
-                ?? false;
 
-            if (!interestMatchesQuery)
-            {
-                quoteQuery = quoteQuery.Where(quote =>
-                    quote.Quote.ToLower().Contains(normalized) ||
-                    quote.Author.ToLower().Contains(normalized) ||
-                    (quote.CreatedBy != null && quote.CreatedBy.DisplayName.ToLower().Contains(normalized)));
-            }
+            quoteQuery = quoteQuery.Where(quote =>
+                quote.Quote.ToLower().Contains(normalized) ||
+                quote.Author.ToLower().Contains(normalized) ||
+                quote.Category.ToLower().Contains(normalized));
         }
 
         var quotes = await quoteQuery
@@ -383,6 +378,7 @@ public class PhraseXController : ControllerBase
                 q.Id,
                 q.Quote,
                 q.Author,
+                q.Category,
                 q.FinalImageUrl,
                 q.Attribution,
                 Creator = q.CreatedBy != null ? q.CreatedBy.DisplayName : "Unknown"

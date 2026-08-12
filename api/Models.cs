@@ -24,6 +24,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<QuoteImage>().Property(x => x.LogoName).HasColumnName("logoname");
         b.Entity<QuoteImage>().Property(x => x.SourceImageUrl).HasColumnName("sourceimageurl");
         b.Entity<QuoteImage>().Property(x => x.FinalImageUrl).HasColumnName("finalimageurl");
+        b.Entity<QuoteImage>().Property(x => x.Category).HasColumnName("category");
         b.Entity<QuoteImage>().Property(x => x.Attribution).HasColumnName("attribution");
         b.Entity<QuoteImage>().Property(x => x.CreatedAt).HasColumnName("createdat");
         b.Entity<QuoteImage>().Property(x => x.CreatedById).HasColumnName("createdbyid");
@@ -63,6 +64,7 @@ public class QuoteImage
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Quote { get; set; } = "";
     public string Author { get; set; } = "";
+    public string Category { get; set; } = "";
     public string LogoName { get; set; } = "";
     public string SourceImageUrl { get; set; } = "";
     public string FinalImageUrl { get; set; } = "";
@@ -89,7 +91,7 @@ public class SiteBranding
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
 public record ProfileRequest(string DisplayName, int[] InterestIds);
-public record QuoteRequest(string ImageUrl, string Quote, string Author, string? Attribution, string? LogoName);
+public record QuoteRequest(string ImageUrl, string Quote, string Author, string? Category, string? Attribution, string? LogoName);
 public record BrandingRequest(string Title, string Description, string LogoName);
 public record BrandingResponse(string Title, string Description, string LogoName);
 public record AuthResponse(string Token, UserDto User);
