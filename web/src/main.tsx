@@ -444,6 +444,24 @@ function Studio({
   const [tagsInput, setTagsInput] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const STOP_WORDS = new Set([
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
+    'from', 'in', 'is', 'it', 'of', 'on', 'or', 'that', 'the', 'this',
+    'to', 'was', 'were', 'with', 'you', 'your', 'i', 'me', 'my', 'we',
+    'our', 'they', 'their', 'he', 'she', 'his', 'her'
+  ]);
+
+  const generateTags = (text: string) => {
+    const words = text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+      .split(/\s+/)
+      .map((word) => word.trim())
+      .filter((word) => word && !STOP_WORDS.has(word));
+
+    return [...new Set(words)].join(', ');
+  };
+
   const effectiveLogo = selectedLogo ?? branding?.logoName;
 
   useEffect(() => {
@@ -574,7 +592,11 @@ function Studio({
               required
               maxLength={260}
               value={quote}
-              onChange={(e) => setQuote(e.target.value)}
+              onChange={(e) => {
+                const nextQuote = e.target.value;
+                setQuote(nextQuote);
+                setTagsInput(generateTags(nextQuote));
+              }}
               placeholder="The words you want to share..."
             />
           </label>
