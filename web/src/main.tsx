@@ -27,6 +27,12 @@ type Logo = {
   name: string;
   url: string;
 };
+type Branding = {
+  title: string;
+  description: string;
+  logoName: string;
+};
+
 type Quote = {
   id: string;
   quote: string;
@@ -61,6 +67,7 @@ function App() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
+  const [branding, setBranding] = useState<Branding | null>(null);
   const [view, setView] = useState<'home' | 'profile' | 'admin'>('home');
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
@@ -68,6 +75,9 @@ function App() {
   useEffect(() => {
     request('/interests').then(setInterests);
     request('/quotes').then(setQuotes);
+    request('/branding')
+      .then(setBranding)
+      .catch(() => null);
     request('/logos')
       .then((items: string[]) =>
         setLogos(items.map((name) => ({ name, url: `${API_BASE}/logos/${encodeURIComponent(name)}` })))
@@ -168,6 +178,8 @@ function App() {
         <Studio
           token={token}
           logos={logos}
+          branding={branding}
+          onBrandingSaved={setBranding}
           onCreated={(q: Quote) => {
             setQuotes([q, ...quotes]);
             setView('home');
@@ -399,14 +411,38 @@ function Profile({
   );
 }
 
-function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onCreated: (q: Quote) => void }) {
+function Studio({
+  token,
+  logos,
+  branding,
+  onBrandingSaved,
+  onCreated,
+}: {
+  token: string;
+  logos: Logo[];
+  branding: Branding | null;
+  onBrandingSaved: (b: Branding) => void;
+  onCreated: (q: Quote) => void;
+}) {
   const [query, setQuery] = useState('love');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [chosen, setChosen] = useState<Photo | null>(null);
   const [quote, setQuote] = useState('');
   const [author, setAuthor] = useState('');
-  const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
+  const [selectedLogo, setSelectedLogo] = useState<string | null>(branding?.logoName ?? null);
+  const [brandingTitle, setBrandingTitle] = useState(branding?.title ?? 'PhraseX');
+  const [brandingDescription, setBrandingDescription] = useState(branding?.description ?? 'Create meaningful branded quote images.');
+  const [brandingLogo, setBrandingLogo] = useState(branding?.logoName ?? '');
   const [busy, setBusy] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [brandingNotice, setBrandingNotice] = useState('');
+
+  useEffect(() => {
+    setBrandingTitle(branding?.title ?? 'PhraseX');
+    setBrandingDescription(branding?.description ?? 'Create meaningful branded quote images.');
+    setBrandingLogo(branding?.logoName ?? '');
+    setSelectedLogo((current) => current ?? branding?.logoName ?? null);
+  }, [branding]);
 
   const search = async (e: FormEvent) => {
     e.preventDefault();
@@ -433,6 +469,34 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
     }
   };
 
+  const saveBranding = async () => {
+    if (!brandingTitle.trim() || !brandingDescription.trim() || !brandingLogo.trim()) {
+      setBrandingNotice('Title, description, and logo are required.');
+      return;
+    }
+
+    setSavingBranding(true);
+    try {
+      const updatedBranding = await request('/branding', token, {
+        method: 'PUT',
+        body: JSON.stringify({
+          title: brandingTitle,
+          description: brandingDescription,
+          logoName: brandingLogo,
+        }),
+      });
+
+      onBrandingSaved(updatedBranding);
+      setBrandingNotice('Branding settings saved.');
+      setSelectedLogo((current) => current ?? updatedBranding.logoName);
+    } catch (err) {
+      setBrandingNotice((err as Error).message);
+    } finally {
+      setSavingBranding(false);
+      window.setTimeout(() => setBrandingNotice(''), 4000);
+    }
+  };
+
   return (
     <section className="page studio">
       <p className="eyebrow">ADMIN STUDIO</p>
@@ -440,6 +504,50 @@ function Studio({ token, logos, onCreated }: { token: string; logos: Logo[]; onC
 
       <div className="studioLayout">
         <div>
+          <section className="studioSection">
+            <p className="eyebrow">BRANDING</p>
+            <h2>Site title, description, and default quote logo</h2>
+            <p className="small">Configure the website branding and choose the default logo for new quote images.</p>
+
+            <label>
+              Site title
+              <input value={brandingTitle} onChange={(e) => setBrandingTitle(e.target.value)} />
+            </label>
+
+            <label>
+              Site description
+              <textarea value={brandingDescription} onChange={(e) => setBrandingDescription(e.target.value)} />
+            </label>
+
+            <label>
+              Default logo
+              <div className="logoGrid">
+                {logos.length ? (
+                  logos.map((logo) => (
+                    <button
+                      type="button"
+                      key={logo.name}
+                      className={brandingLogo === logo.name ? 'chosen' : ''}
+                      onClick={() => {
+                        setBrandingLogo(logo.name);
+                        setSelectedLogo((current) => current ?? logo.name);
+                      }}
+                    >
+                      <img src={logo.url} alt={logo.name} />
+                    </button>
+                  ))
+                ) : (
+                  <span className="small">No logos available yet.</span>
+                )}
+              </div>
+            </label>
+
+            <button type="button" className="gold" onClick={saveBranding} disabled={savingBranding}>
+              {savingBranding ? 'Saving…' : 'Save branding'}
+            </button>
+            {brandingNotice && <p className="small">{brandingNotice}</p>}
+          </section>
+
           <form className="search studioSearch" onSubmit={search}>
             <Search size={18} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} />

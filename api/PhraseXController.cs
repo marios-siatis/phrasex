@@ -236,6 +236,7 @@ public class PhraseXController : ControllerBase
         {
             Quote = quoteText,
             Author = authorText,
+            LogoName = request.LogoName ?? string.Empty,
             SourceImageUrl = request.ImageUrl,
             FinalImageUrl = finalUrl,
             Attribution = request.Attribution,
@@ -282,6 +283,69 @@ public class PhraseXController : ControllerBase
         return Ok(logos);
     }
 
+    [HttpGet("branding")]
+    public async Task<IActionResult> GetBranding()
+    {
+        var branding = await _db.SiteBrandings.FirstOrDefaultAsync();
+
+        if (branding is null)
+        {
+            return Ok(new BrandingResponse("PhraseX", "Create meaningful branded quote images.", "phrasex.jpg"));
+        }
+
+        return Ok(new BrandingResponse(branding.Title, branding.Description, branding.LogoName));
+    }
+
+    [HttpPut("branding")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> UpdateBranding(BrandingRequest request)
+    {
+        var user = await CurrentUser();
+
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "A title is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            return BadRequest(new { message = "A description is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.LogoName))
+        {
+            return BadRequest(new { message = "A logo is required." });
+        }
+
+        var branding = await _db.SiteBrandings.FirstOrDefaultAsync();
+
+        if (branding is null)
+        {
+            branding = new SiteBranding
+            {
+                Title = request.Title.Trim(),
+                Description = request.Description.Trim(),
+                LogoName = request.LogoName.Trim()
+            };
+            _db.SiteBrandings.Add(branding);
+        }
+        else
+        {
+            branding.Title = request.Title.Trim();
+            branding.Description = request.Description.Trim();
+            branding.LogoName = request.LogoName.Trim();
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new BrandingResponse(branding.Title, branding.Description, branding.LogoName));
+    }
+
     [HttpGet("quotes")]
     public async Task<IActionResult> GetQuotes([FromQuery] string? q)
     {
@@ -301,6 +365,7 @@ public class PhraseXController : ControllerBase
             {
                 quoteQuery = quoteQuery.Where(quote =>
                     quote.Quote.ToLower().Contains(normalized) ||
+                    quote.Author.ToLower().Contains(normalized) ||
                     (quote.CreatedBy != null && quote.CreatedBy.DisplayName.ToLower().Contains(normalized)));
             }
         }

@@ -101,18 +101,25 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.EnsureCreatedAsync();
 
     await db.Database.ExecuteSqlRawAsync(@"
-    DO $$
-    BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name = 'QuoteImages'
-              AND column_name = 'Author'
-        ) THEN
-            ALTER TABLE ""QuoteImages"" ADD COLUMN ""Author"" text NOT NULL DEFAULT '';
-        END IF;
-    END
-    $$;");
-    
+    ALTER TABLE IF EXISTS ""QuoteImages"" ADD COLUMN IF NOT EXISTS ""Author"" text NOT NULL DEFAULT '';
+    ALTER TABLE IF EXISTS ""QuoteImages"" ADD COLUMN IF NOT EXISTS ""LogoName"" text NOT NULL DEFAULT '';
+    CREATE TABLE IF NOT EXISTS ""SiteBrandings"" (
+        id uuid PRIMARY KEY,
+        title text NOT NULL DEFAULT '',
+        description text NOT NULL DEFAULT '',
+        logoname text NOT NULL DEFAULT ''
+    );");
+
+    if (!await db.SiteBrandings.AnyAsync())
+    {
+        db.SiteBrandings.Add(new SiteBranding
+        {
+            Title = "PhraseX",
+            Description = "Create meaningful branded quote images.",
+            LogoName = "phrasex.jpg"
+        });
+    }
+
     if (!await db.Interests.AnyAsync())
     {
         db.Interests.AddRange(
