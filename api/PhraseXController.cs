@@ -479,9 +479,11 @@ public class PhraseXController : ControllerBase
         string categoryB,
         double threshold)
     {
-        return StringSimilarity(quoteA, quoteB) >= threshold &&
-               string.Equals(authorA.Trim(), authorB.Trim(), StringComparison.OrdinalIgnoreCase) &&
-               string.Equals(categoryA.Trim(), categoryB.Trim(), StringComparison.OrdinalIgnoreCase);
+        // Duplicate detection is based on the quote text only.
+        // Author and category do not affect whether two quotes are considered
+        // duplicates. This prevents the same quote being stored multiple times
+        // simply because it has a different author or category.
+        return StringSimilarity(quoteA, quoteB) >= threshold;
     }
 
     private static double StringSimilarity(string a, string b)
