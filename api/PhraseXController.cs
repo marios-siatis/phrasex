@@ -84,7 +84,7 @@ public class PhraseXController : ControllerBase
         var email = request.Email.ToLower();
 
         var user = await _db.Users
-            .Include(x => x.Interests)
+            .Include(x => x.Categories)
             .SingleOrDefaultAsync(x => x.Email == email);
 
         if (user is null)
@@ -108,17 +108,17 @@ public class PhraseXController : ControllerBase
     }
 
     // ==========================================
-    // Interests
+    // Categories
     // ==========================================
 
-    [HttpGet("interests")]
-    public async Task<IActionResult> GetInterests()
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories()
     {
-        var interests = await _db.Interests
+        var categories = await _db.Categories
             .OrderBy(x => x.Name)
             .ToListAsync();
 
-        return Ok(interests);
+        return Ok(categories);
     }
 
     // ==========================================
@@ -143,8 +143,8 @@ public class PhraseXController : ControllerBase
 
         user.DisplayName = request.DisplayName.Trim();
 
-        user.Interests = await _db.Interests
-            .Where(i => request.InterestIds.Contains(i.Id))
+        user.Categories = await _db.Categories
+            .Where(i => request.CategoryIds.Contains(i.Id))
             .ToListAsync();
 
         await _db.SaveChangesAsync();
@@ -214,9 +214,21 @@ public class PhraseXController : ControllerBase
                 });
         }
 
+        if (string.IsNullOrWhiteSpace(request.Category))
+        {
+            return BadRequest(new { message = "A category is required for the quote." });
+        }
+
         var quoteText = request.Quote.Trim();
         var authorText = request.Author.Trim();
-        var categoryText = request.Category?.Trim() ?? string.Empty;
+        var categoryText = request.Category.Trim();
+
+        // Ensure category exists
+        var category = await _db.Categories.FirstOrDefaultAsync(c => c.Name == categoryText);
+        if (category is null)
+        {
+            return BadRequest(new { message = "Category does not exist." });
+        }
 
         var branding = await GetBrandingAsync();
         var logoName = string.IsNullOrWhiteSpace(request.LogoName)
@@ -250,6 +262,28 @@ public class PhraseXController : ControllerBase
             CreatedById = user.Id,
             CreatedBy = user
         };
+
+        // Attach tags if provided (optional comma-separated list in Attribution field?)
+        // Expect tags passed via request.Attribution as comma-separated names is not ideal;
+        // Better approach: accept tags explicitly in the request. For now, check QueryString for tags param.
+        var tagsParam = HttpContext.Request.Query["tags"].ToString();
+        if (!string.IsNullOrWhiteSpace(tagsParam))
+        {
+            var tagNames = tagsParam.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToArray();
+
+            foreach (var tn in tagNames)
+            {
+                var tag = await _db.Tags.FirstOrDefaultAsync(t => t.Name == tn) ?? new Tag { Name = tn };
+                if (tag.Id == 0)
+                {
+                    _db.Tags.Add(tag);
+                }
+                quote.Tags.Add(tag);
+            }
+        }
 
         _db.QuoteImages.Add(quote);
 
@@ -358,6 +392,7 @@ public class PhraseXController : ControllerBase
     {
         var quoteQuery = _db.QuoteImages
             .Include(qt => qt.CreatedBy)
+            .Include(qt => qt.Tags)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(q))
@@ -381,6 +416,7 @@ public class PhraseXController : ControllerBase
                 q.Category,
                 q.FinalImageUrl,
                 q.Attribution,
+                Tags = q.Tags.Select(t => t.Name),
                 Creator = q.CreatedBy != null ? q.CreatedBy.DisplayName : "Unknown"
             })
             .ToListAsync();
@@ -403,7 +439,7 @@ public class PhraseXController : ControllerBase
         }
 
         return await _db.Users
-            .Include(x => x.Interests)
+            .Include(x => x.Categories)
             .SingleAsync(
                 u => u.Id == Guid.Parse(userId));
     }
@@ -468,6 +504,6 @@ public class PhraseXController : ControllerBase
             user.Email,
             user.DisplayName,
             user.IsAdmin,
-            user.Interests.Select(i => i.Id));
+            user.Categories.Select(i => i.Id));
     }
 }

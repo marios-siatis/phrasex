@@ -121,6 +121,19 @@ await using (var scope = app.Services.CreateAsyncScope())
         title text NOT NULL DEFAULT '',
         description text NOT NULL DEFAULT '',
         logoname text NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS public.categories (
+        id serial PRIMARY KEY,
+        name text NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS public.tags (
+        id serial PRIMARY KEY,
+        name text NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS public.quoteimagetags (
+        quoteimagesid uuid NOT NULL,
+        tagsid integer NOT NULL,
+        PRIMARY KEY (quoteimagesid, tagsid)
     );");
 
     var shouldSave = false;
@@ -136,23 +149,28 @@ await using (var scope = app.Services.CreateAsyncScope())
         shouldSave = true;
     }
 
-    if (!await db.Interests.AnyAsync())
+    if (!await db.Categories.AnyAsync())
     {
-        db.Interests.AddRange(
+        db.Categories.AddRange(
             new[]
                 {
                     "Love", "Relationships", "Inspiration", "Mindfulness", "Success", "Friendship", "Motivation",
                     "Gratitude"
                 }
-                .Select(name => new Interest { Name = name }));
+                .Select(name => new Category { Name = name }));
 
-        var admin = new AppUser { Email = "admin@phrasex.local", DisplayName = "PhraseX Admin", IsAdmin = true };
 
-        admin.PasswordHash =
-            new PasswordHasher<AppUser>()
-                .HashPassword(admin, "ChangeMe123!");
+        if (!await db.Users.AnyAsync())
+        {
+            var admin = new AppUser { Email = "admin@phrasex.local", DisplayName = "PhraseX Admin", IsAdmin = true };
 
-        db.Users.Add(admin);
+            admin.PasswordHash =
+                new PasswordHasher<AppUser>()
+                    .HashPassword(admin, "ChangeMe123!");
+
+            db.Users.Add(admin);
+        }
+
         shouldSave = true;
     }
 

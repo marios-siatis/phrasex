@@ -6,14 +6,14 @@ import './styles.css';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_BASE = API.replace(/\/api\/?$/, '');
 
-type Interest = { id: number; name: string };
+type Category = { id: number; name: string };
 
 type User = {
   id: string;
   email: string;
   displayName: string;
   isAdmin: boolean;
-  interestIds: number[];
+  categoryIds: number[];
 };
 
 type Photo = {
@@ -63,7 +63,7 @@ const request = async (path: string, token?: string, options?: RequestInit) => {
 function App() {
   const [token, setToken] = useState(localStorage.getItem('px_token') || '');
   const [user, setUser] = useState<User | null>(null);
-  const [interests, setInterests] = useState<Interest[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState('inspiration');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -74,7 +74,7 @@ function App() {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    request('/interests').then(setInterests);
+    request('/categories').then(setCategories);
     request('/quotes').then(setQuotes);
     request('/branding')
       .then(setBranding)
@@ -174,7 +174,7 @@ function App() {
       )}
 
       {view === 'profile' && user && (
-        <Profile user={user} interests={interests} token={token} save={setUser} />
+        <Profile user={user} categories={categories} token={token} save={setUser} />
       )}
 
       {view === 'admin' && user?.isAdmin && (
@@ -182,6 +182,7 @@ function App() {
           token={token}
           logos={logos}
           branding={branding}
+          categories={categories}
           onCreated={(q: Quote) => {
             setQuotes([q, ...quotes]);
             setView('home');
@@ -359,17 +360,17 @@ function Auth({
 
 function Profile({
   user,
-  interests,
+  categories,
   token,
   save,
 }: {
   user: User;
-  interests: Interest[];
+  categories: Category[];
   token: string;
   save: (u: User) => void;
 }) {
   const [name, setName] = useState(user.displayName);
-  const [selected, setSelected] = useState(user.interestIds);
+  const [selected, setSelected] = useState(user.categoryIds);
   const [saved, setSaved] = useState(false);
 
   const toggle = (id: number) =>
@@ -380,7 +381,7 @@ function Profile({
     save(
       await request('/profile', token, {
         method: 'PUT',
-        body: JSON.stringify({ displayName: name, interestIds: selected }),
+        body: JSON.stringify({ displayName: name, categoryIds: selected }),
       })
     );
     setSaved(true);
@@ -398,9 +399,9 @@ function Profile({
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
 
-        <h3>Your interests</h3>
+        <h3>Your categories</h3>
         <div className="chips">
-          {interests.map((i) => (
+          {categories.map((i) => (
             <button
               type="button"
               onClick={() => toggle(i.id)}
@@ -424,11 +425,13 @@ function Studio({
   token,
   logos,
   branding,
+  categories,
   onCreated,
 }: {
   token: string;
   logos: Logo[];
   branding: Branding | null;
+  categories: Category[];
   onCreated: (q: Quote) => void;
 }) {
   const [query, setQuery] = useState('love');
@@ -437,12 +440,15 @@ function Studio({
   const [quote, setQuote] = useState('');
   const [author, setAuthor] = useState('');
   const [selectedLogo, setSelectedLogo] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [tagsInput, setTagsInput] = useState('');
   const [busy, setBusy] = useState(false);
 
   const effectiveLogo = selectedLogo ?? branding?.logoName;
 
   useEffect(() => {
     setSelectedLogo((current) => current ?? null);
+    setSelectedCategoryId((current) => current ?? ( (categories && categories[0]) ? categories[0].id : null));
   }, [branding]);
 
   const search = async (e: FormEvent) => {
@@ -451,16 +457,20 @@ function Studio({
   };
 
   const create = async () => {
-    if (!chosen || !quote || !author) return;
+    if (!chosen || !quote || !author || !selectedCategoryId) return;
     setBusy(true);
     try {
+      const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+      const tagsParam = encodeURIComponent(tagsInput || '');
+
       onCreated(
-        await request('/admin/quotes', token, {
+        await request(`/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, token, {
           method: 'POST',
           body: JSON.stringify({
             imageUrl: chosen.thumbnailUrl,
             quote,
             author,
+            category: selectedCategory?.name ?? '',
             logoName: effectiveLogo,
           }),
         })
@@ -510,6 +520,27 @@ function Studio({
               onChange={(e) => setAuthor(e.target.value)}
               placeholder="Who said it?"
             />
+          </label>
+
+          <label>
+            Category *
+            <select
+              required
+              value={selectedCategoryId ?? undefined}
+              onChange={(e) => setSelectedCategoryId(Number(e.target.value))}
+            >
+              <option value="">Select a category</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Tags (optional, comma separated)
+            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
           </label>
 
           <label>

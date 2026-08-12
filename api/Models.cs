@@ -5,7 +5,8 @@ namespace PhraseX.Api;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<AppUser> Users => Set<AppUser>();
-    public DbSet<Interest> Interests => Set<Interest>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<QuoteImage> QuoteImages => Set<QuoteImage>();
     public DbSet<SiteBranding> SiteBrandings => Set<SiteBranding>();
 
@@ -14,8 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.HasDefaultSchema("public");
 
         b.Entity<AppUser>().HasIndex(x => x.Email).IsUnique();
-        b.Entity<Interest>().HasIndex(x => x.Name).IsUnique();
-        b.Entity<AppUser>().HasMany(x => x.Interests).WithMany();
+        b.Entity<Category>().HasIndex(x => x.Name).IsUnique();
+        b.Entity<AppUser>().HasMany(x => x.Categories).WithMany();
 
         b.Entity<QuoteImage>().ToTable("quoteimages");
         b.Entity<QuoteImage>().Property(x => x.Id).HasColumnName("id");
@@ -29,6 +30,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<QuoteImage>().Property(x => x.CreatedAt).HasColumnName("createdat");
         b.Entity<QuoteImage>().Property(x => x.CreatedById).HasColumnName("createdbyid");
 
+        b.Entity<Category>().ToTable("categories");
+        b.Entity<Category>().Property(x => x.Id).HasColumnName("id");
+        b.Entity<Category>().Property(x => x.Name).HasColumnName("name");
+
+        b.Entity<Tag>().ToTable("tags");
+        b.Entity<Tag>().Property(x => x.Id).HasColumnName("id");
+        b.Entity<Tag>().Property(x => x.Name).HasColumnName("name");
+
+        b.Entity<QuoteImage>()
+            .HasMany(q => q.Tags)
+            .WithMany(t => t.QuoteImages)
+            .UsingEntity(join => join.ToTable("quoteimagetags"));
+
         b.Entity<SiteBranding>().ToTable("sitebrandings");
         b.Entity<SiteBranding>().Property(x => x.Id).HasColumnName("id");
         b.Entity<SiteBranding>().Property(x => x.Title).HasColumnName("title");
@@ -36,7 +50,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<SiteBranding>().Property(x => x.LogoName).HasColumnName("logoname");
     }
 }
+public class Category
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+}
 
+public class Tag
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+
+    public ICollection<QuoteImage> QuoteImages { get; set; } = new List<QuoteImage>();
+}
 public class AppUser
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -47,17 +73,10 @@ public class AppUser
     {
         get; set;
     }
-    public ICollection<Interest> Interests { get; set; } = new List<Interest>();
+    public ICollection<Category> Categories { get; set; } = new List<Category>();
 }
 
-public class Interest
-{
-    public int Id
-    {
-        get; set;
-    }
-    public string Name { get; set; } = "";
-}
+// Category class defined above
 
 public class QuoteImage
 {
@@ -65,6 +84,7 @@ public class QuoteImage
     public string Quote { get; set; } = "";
     public string Author { get; set; } = "";
     public string Category { get; set; } = "";
+    public ICollection<Tag> Tags { get; set; } = new List<Tag>();
     public string LogoName { get; set; } = "";
     public string SourceImageUrl { get; set; } = "";
     public string FinalImageUrl { get; set; } = "";
@@ -90,9 +110,9 @@ public class SiteBranding
 
 public record RegisterRequest(string Email, string Password, string DisplayName);
 public record LoginRequest(string Email, string Password);
-public record ProfileRequest(string DisplayName, int[] InterestIds);
-public record QuoteRequest(string ImageUrl, string Quote, string Author, string? Category, string? Attribution, string? LogoName);
+public record ProfileRequest(string DisplayName, int[] CategoryIds);
+public record QuoteRequest(string ImageUrl, string Quote, string Author, string Category, string? Attribution, string? LogoName);
 public record BrandingRequest(string Title, string Description, string LogoName);
 public record BrandingResponse(string Title, string Description, string LogoName);
 public record AuthResponse(string Token, UserDto User);
-public record UserDto(Guid Id, string Email, string DisplayName, bool IsAdmin, IEnumerable<int> InterestIds);
+public record UserDto(Guid Id, string Email, string DisplayName, bool IsAdmin, IEnumerable<int> CategoryIds);
