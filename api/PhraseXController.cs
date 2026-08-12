@@ -234,17 +234,36 @@ public class PhraseXController : ControllerBase
             return BadRequest(new { message = "Category does not exist." });
         }
 
-        var existingQuotes = await _db.QuoteImages
+        // Check both image quotes and imported text quotes.
+        // This prevents a CSV quote from later being saved again as an image quote.
+        var existingImageQuotes = await _db.QuoteImages
             .AsNoTracking()
             .Select(q => new { q.Quote, q.Author, q.Category })
             .ToListAsync();
 
-        var duplicateQuoteExists = existingQuotes.Any(q =>
-            QuoteMatchesByThreshold(quoteText, authorText, categoryText, q.Quote, q.Author, q.Category, _quoteSimilarityThreshold));
+        var existingTextQuotes = await _db.TextQuotes
+            .AsNoTracking()
+            .Select(q => new { q.Quote, q.Author, q.Category })
+            .ToListAsync();
 
-        if (duplicateQuoteExists)
+        var duplicateImageQuoteExists = existingImageQuotes.Any(q =>
+            QuoteMatchesByThreshold(
+                quoteText, authorText, categoryText,
+                q.Quote, q.Author, q.Category,
+                _quoteSimilarityThreshold));
+
+        var duplicateTextQuoteExists = existingTextQuotes.Any(q =>
+            QuoteMatchesByThreshold(
+                quoteText, authorText, categoryText,
+                q.Quote, q.Author, q.Category,
+                _quoteSimilarityThreshold));
+
+        if (duplicateImageQuoteExists || duplicateTextQuoteExists)
         {
-            return BadRequest(new { message = "This quote is too similar to an existing quote and was not saved." });
+            return BadRequest(new
+            {
+                message = $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}."
+            });
         }
 
         var branding = await GetBrandingAsync();
@@ -467,22 +486,61 @@ public class PhraseXController : ControllerBase
 
     private static double StringSimilarity(string a, string b)
     {
-        a = a.Trim().ToLowerInvariant();
-        b = b.Trim().ToLowerInvariant();
+        var normalizedA = NormalizeQuote(a);
+        var normalizedB = NormalizeQuote(b);
 
-        if (a == b)
+        if (normalizedA == normalizedB)
         {
             return 1.0;
         }
 
-        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+        if (string.IsNullOrWhiteSpace(normalizedA) || string.IsNullOrWhiteSpace(normalizedB))
         {
             return 0.0;
         }
 
-        var distance = LevenshteinDistance(a, b);
-        var maxLen = Math.Max(a.Length, b.Length);
-        return 1.0 - distance / (double)maxLen;
+        // Character similarity catches typos and small edits.
+        var distance = LevenshteinDistance(normalizedA, normalizedB);
+        var maxLen = Math.Max(normalizedA.Length, normalizedB.Length);
+        var characterSimilarity = 1.0 - distance / (double)maxLen;
+
+        // Word containment catches one quote being another quote plus
+        // additional words.
+        var wordsA = GetQuoteWords(normalizedA);
+        var wordsB = GetQuoteWords(normalizedB);
+
+        var shorterWords = wordsA.Length <= wordsB.Length ? wordsA : wordsB;
+        var longerWords = wordsA.Length <= wordsB.Length ? wordsB : wordsA;
+
+        var containmentSimilarity = shorterWords.Length == 0
+            ? 0.0
+            : shorterWords.Count(word =>
+                longerWords.Contains(word, StringComparer.OrdinalIgnoreCase))
+              / (double)shorterWords.Length;
+
+        return Math.Max(characterSimilarity, containmentSimilarity);
+    }
+
+    private static string NormalizeQuote(string value)
+    {
+        var chars = value
+            .Trim()
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(
+            ' ',
+            new string(chars)
+                .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string[] GetQuoteWords(string normalizedQuote)
+    {
+        return normalizedQuote
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static int LevenshteinDistance(string a, string b)

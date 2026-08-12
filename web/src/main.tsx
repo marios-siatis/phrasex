@@ -450,6 +450,7 @@ function Studio({
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [tagsInput, setTagsInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   const STOP_WORDS = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
@@ -473,7 +474,7 @@ function Studio({
 
   useEffect(() => {
     setSelectedLogo((current) => current ?? null);
-    setSelectedCategoryId((current) => current ?? ( (categories && categories[0]) ? categories[0].id : null));
+    setSelectedCategoryId((current) => current ?? ((categories && categories[0]) ? categories[0].id : null));
   }, [branding]);
 
   const search = async (e: FormEvent) => {
@@ -482,24 +483,35 @@ function Studio({
   };
 
   const create = async () => {
-    if (!chosen || !quote || !author || !selectedCategoryId) return;
+    if (!chosen || !quote.trim() || !author.trim() || !selectedCategoryId || !effectiveLogo) {
+      return;
+    }
+
     setBusy(true);
+    setCreateError('');
+
     try {
       const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
       const tagsParam = encodeURIComponent(tagsInput || '');
 
-      onCreated(
-        await request(`/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, token, {
+      const createdQuote = await request(
+        `/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`,
+        token,
+        {
           method: 'POST',
           body: JSON.stringify({
             imageUrl: chosen.thumbnailUrl,
-            quote,
-            author,
+            quote: quote.trim(),
+            author: author.trim(),
             category: selectedCategory?.name ?? '',
             logoName: effectiveLogo,
           }),
-        })
+        }
       );
+
+      onCreated(createdQuote);
+    } catch (err) {
+      setCreateError((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -542,7 +554,10 @@ function Studio({
               required
               type="text"
               value={author}
-              onChange={(e) => setAuthor(e.target.value)}
+              onChange={(e) => {
+                setAuthor(e.target.value);
+                setCreateError('');
+              }}
               placeholder="Who said it?"
             />
           </label>
@@ -552,7 +567,10 @@ function Studio({
             <select
               required
               value={selectedCategoryId ?? undefined}
-              onChange={(e) => setSelectedCategoryId(Number(e.target.value))}
+              onChange={(e) => {
+                setSelectedCategoryId(Number(e.target.value));
+                setCreateError('');
+              }}
             >
               <option value="">Select a category</option>
               {categories.map((c) => (
@@ -603,16 +621,39 @@ function Studio({
                 const nextQuote = e.target.value;
                 setQuote(nextQuote);
                 setTagsInput(generateTags(nextQuote));
+                setCreateError('');
               }}
               placeholder="The words you want to share..."
             />
           </label>
 
+          {createError && (
+            <div
+              role="alert"
+              style={{
+                marginTop: '12px',
+                padding: '14px 16px',
+                border: '1px solid rgba(220, 38, 38, 0.45)',
+                borderRadius: '10px',
+                background: 'rgba(220, 38, 38, 0.08)',
+              }}
+            >
+              <strong style={{ display: 'block', marginBottom: '5px' }}>
+                Quote not saved
+              </strong>
+              <span>{createError}</span>
+            </div>
+          )}
+
           <p className="small">
             The quote is centered on the image. The PhraseX wordmark is added underneath.
           </p>
 
-          <button disabled={!chosen || !quote || !author || !selectedLogo || busy} className="gold" onClick={create}>
+          <button
+            disabled={!chosen || !quote.trim() || !author.trim() || !effectiveLogo || !selectedCategoryId || busy}
+            className="gold"
+            onClick={create}
+          >
             {busy ? 'Creating image…' : 'Create quote image'}
           </button>
         </aside>
