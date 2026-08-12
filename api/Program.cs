@@ -101,17 +101,9 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.EnsureCreatedAsync();
 
     await db.Database.ExecuteSqlRawAsync(@"
-    CREATE TABLE IF NOT EXISTS public.""QuoteImages"" (
-        id uuid PRIMARY KEY,
-        quote text NOT NULL DEFAULT '',
-        author text NOT NULL DEFAULT '',
-        logoname text NOT NULL DEFAULT '',
-        sourceimageurl text NOT NULL DEFAULT '',
-        finalimageurl text NOT NULL DEFAULT '',
-        attribution text,
-        createdat timestamp without time zone NOT NULL DEFAULT now(),
-        createdbyid uuid NOT NULL
-    );
+    DROP TABLE IF EXISTS public.""QuoteImages"";
+    DROP TABLE IF EXISTS public.""SiteBrandings"";
+
     CREATE TABLE IF NOT EXISTS public.quoteimages (
         id uuid PRIMARY KEY,
         quote text NOT NULL DEFAULT '',
@@ -123,12 +115,6 @@ await using (var scope = app.Services.CreateAsyncScope())
         attribution text,
         createdat timestamp without time zone NOT NULL DEFAULT now(),
         createdbyid uuid NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS public.""SiteBrandings"" (
-        id uuid PRIMARY KEY,
-        title text NOT NULL DEFAULT '',
-        description text NOT NULL DEFAULT '',
-        logoname text NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS public.sitebrandings (
         id uuid PRIMARY KEY,
