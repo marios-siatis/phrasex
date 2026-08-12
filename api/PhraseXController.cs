@@ -20,6 +20,7 @@ public class PhraseXController : ControllerBase
     private readonly PexelsClient _pexelsClient;
     private readonly ImageComposer _imageComposer;
     private readonly IWebHostEnvironment _environment;
+    private readonly double _quoteSimilarityThreshold;
 
     public PhraseXController(
         AppDbContext db,
@@ -33,6 +34,7 @@ public class PhraseXController : ControllerBase
         _pexelsClient = pexelsClient;
         _imageComposer = imageComposer;
         _environment = environment;
+        _quoteSimilarityThreshold = configuration.GetValue<double>("ThresholdQuoteSimilarity", 0.75);
     }
 
     // ==========================================
@@ -232,14 +234,17 @@ public class PhraseXController : ControllerBase
             return BadRequest(new { message = "Category does not exist." });
         }
 
-        var duplicateQuoteExists = await _db.QuoteImages.AnyAsync(q =>
-            q.Quote.ToLower() == quoteText.ToLower() &&
-            q.Author.ToLower() == authorText.ToLower() &&
-            q.Category.ToLower() == categoryText.ToLower());
+        var existingQuotes = await _db.QuoteImages
+            .AsNoTracking()
+            .Select(q => new { q.Quote, q.Author, q.Category })
+            .ToListAsync();
+
+        var duplicateQuoteExists = existingQuotes.Any(q =>
+            QuoteMatchesByThreshold(quoteText, authorText, categoryText, q.Quote, q.Author, q.Category, _quoteSimilarityThreshold));
 
         if (duplicateQuoteExists)
         {
-            return BadRequest(new { message = "This quote already exists and was not saved." });
+            return BadRequest(new { message = "This quote is too similar to an existing quote and was not saved." });
         }
 
         var branding = await GetBrandingAsync();
@@ -349,11 +354,9 @@ public class PhraseXController : ControllerBase
         }
 
         var existingTextQuotes = await _db.TextQuotes
+            .AsNoTracking()
             .Select(t => new { t.Quote, t.Author, t.Category })
             .ToListAsync();
-
-        var knownKeys = new HashSet<string>(existingTextQuotes
-            .Select(t => NormalizeQuoteKey(t.Quote, t.Author, t.Category)));
 
         var imported = new List<TextQuote>();
 
@@ -379,14 +382,19 @@ public class PhraseXController : ControllerBase
 
             var authorTextLine = values[authorIndex].Trim();
             var categoryTextLine = values[categoryIndex].Trim();
-            var quoteKey = NormalizeQuoteKey(quoteTextLine, authorTextLine, categoryTextLine);
 
-            if (knownKeys.Contains(quoteKey))
+            var isDuplicate = existingTextQuotes.Any(existing =>
+                QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
+                    existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold)) ||
+                imported.Any(existing =>
+                    QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
+                        existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold));
+
+            if (isDuplicate)
             {
                 continue;
             }
 
-            knownKeys.Add(quoteKey);
             imported.Add(new TextQuote
             {
                 Quote = quoteTextLine,
@@ -443,9 +451,68 @@ public class PhraseXController : ControllerBase
         return values.ToArray();
     }
 
-    private static string NormalizeQuoteKey(string quote, string author, string category)
+    private static bool QuoteMatchesByThreshold(
+        string quoteA,
+        string authorA,
+        string categoryA,
+        string quoteB,
+        string authorB,
+        string categoryB,
+        double threshold)
     {
-        return $"{quote.Trim().ToLowerInvariant()}|{author.Trim().ToLowerInvariant()}|{category.Trim().ToLowerInvariant()}";
+        return StringSimilarity(quoteA, quoteB) >= threshold &&
+               string.Equals(authorA.Trim(), authorB.Trim(), StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(categoryA.Trim(), categoryB.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static double StringSimilarity(string a, string b)
+    {
+        a = a.Trim().ToLowerInvariant();
+        b = b.Trim().ToLowerInvariant();
+
+        if (a == b)
+        {
+            return 1.0;
+        }
+
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+        {
+            return 0.0;
+        }
+
+        var distance = LevenshteinDistance(a, b);
+        var maxLen = Math.Max(a.Length, b.Length);
+        return 1.0 - distance / (double)maxLen;
+    }
+
+    private static int LevenshteinDistance(string a, string b)
+    {
+        var n = a.Length;
+        var m = b.Length;
+        var dp = new int[n + 1, m + 1];
+
+        for (var i = 0; i <= n; i++)
+        {
+            dp[i, 0] = i;
+        }
+
+        for (var j = 0; j <= m; j++)
+        {
+            dp[0, j] = j;
+        }
+
+        for (var i = 1; i <= n; i++)
+        {
+            for (var j = 1; j <= m; j++)
+            {
+                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                dp[i, j] = Math.Min(
+                    Math.Min(dp[i - 1, j] + 1, dp[i, j - 1] + 1),
+                    dp[i - 1, j - 1] + cost);
+            }
+        }
+
+        return dp[n, m];
     }
 
     // ==========================================
