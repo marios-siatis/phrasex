@@ -729,6 +729,20 @@ textarea {
   text-transform: uppercase;
 }
 
+.scheduleTimeSort {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.scheduleTimeSort:hover,
+.scheduleTimeSort:focus-visible {
+  color: var(--accent-bright);
+}
+
 .scheduleTable td .small {
   display: block;
   margin-top: 4px;

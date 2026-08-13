@@ -863,6 +863,9 @@ function SchedulePage({ token }: { token: string }) {
   const [scheduleStatusFilter, setScheduleStatusFilter] = useState<
     'all' | 'failed' | 'scheduled' | 'posted'
   >('all');
+  const [scheduleTimeSort, setScheduleTimeSort] = useState<'asc' | 'desc'>(
+    'asc'
+  );
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const getNextAvailableTime = () => {
@@ -1096,11 +1099,19 @@ function SchedulePage({ token }: { token: string }) {
       ? 'failed'
       : 'scheduled';
   };
-  const filteredScheduledPosts = scheduledPosts.filter(
-    (post) =>
-      scheduleStatusFilter === 'all' ||
-      getPostStatus(post) === scheduleStatusFilter
-  );
+  const filteredScheduledPosts = scheduledPosts
+    .filter(
+      (post) =>
+        scheduleStatusFilter === 'all' ||
+        getPostStatus(post) === scheduleStatusFilter
+    )
+    .sort((first, second) => {
+      const difference =
+        new Date(first.scheduledAt).getTime() -
+        new Date(second.scheduledAt).getTime();
+
+      return scheduleTimeSort === 'asc' ? difference : -difference;
+    });
 
   return (
     <section className="page studio">
@@ -1509,7 +1520,19 @@ function SchedulePage({ token }: { token: string }) {
                       <tr>
                         <th>Quote</th>
                         <th>Account</th>
-                        <th>Scheduled for</th>
+                        <th aria-sort={scheduleTimeSort === 'asc' ? 'ascending' : 'descending'}>
+                          <button
+                            type="button"
+                            className="scheduleTimeSort"
+                            onClick={() =>
+                              setScheduleTimeSort((current) =>
+                                current === 'asc' ? 'desc' : 'asc'
+                              )
+                            }
+                          >
+                            Scheduled for {scheduleTimeSort === 'asc' ? '↑' : '↓'}
+                          </button>
+                        </th>
                         <th>Status</th>
                       </tr>
                     </thead>
