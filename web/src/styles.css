@@ -213,14 +213,12 @@ nav {
   font-size: 14px;
 }
 
-.quoteGrid,
 .imageGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
-.quoteGrid article,
 figure {
   margin: 0;
   background: var(--surface);
@@ -228,7 +226,6 @@ figure {
   overflow: hidden;
 }
 
-.quoteGrid img,
 .imageGrid img {
   width: 100%;
   height: 330px;
@@ -236,11 +233,39 @@ figure {
   display: block;
 }
 
-.quoteGrid p {
-  padding: 14px;
-  margin: 0;
-  font: 600 17px 'Playfair Display';
-  color: var(--text);
+.quoteGrid {
+  columns: 5 180px;
+  column-gap: 14px;
+}
+
+.quotePin {
+  display: block;
+  width: 100%;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: hidden;
+  break-inside: avoid;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.quotePin:hover {
+  border-color: var(--accent-bright);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
+}
+
+.quotePin:focus-visible {
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
+.quotePin img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .imageGrid figcaption {
@@ -839,6 +864,9 @@ textarea {
   .imageGrid {
     grid-template-columns: 1fr 1fr;
   }
+  .quoteGrid {
+    columns: 3 160px;
+  }
   .studioLayout {
     grid-template-columns: 1fr;
   }
@@ -862,6 +890,9 @@ textarea {
   .quoteGrid,
   .imageGrid {
     grid-template-columns: 1fr;
+  }
+  .quoteGrid {
+    columns: 2 140px;
   }
   .hero h1 {
     font-size: 49px;

@@ -100,6 +100,7 @@ function App() {
   const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule'>('home');
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
+  const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
 
   useEffect(() => {
     request('/categories').then(setCategories);
@@ -275,15 +276,18 @@ function App() {
             ) : (
               <div className="quoteGrid">
                 {quotes.map((q) => (
-                  <article key={q.id}>
+                  <button
+                    type="button"
+                    className="quotePin"
+                    key={q.id}
+                    onClick={() => setQuotePreview(q)}
+                    aria-label={`Preview quote: ${q.quote}`}
+                  >
                     <img
                       src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
                       alt={q.quote}
                     />
-                    <p>{q.quote}</p>
-                    <p className="quoteAuthor">— {q.author}</p>
-                    {q.category && <p className="quoteCategory">{q.category}</p>}
-                  </article>
+                  </button>
                 ))}
                 {!quotes.length && (
                   <p className="empty">No published quotes yet. Search Pexels above to begin exploring.</p>
@@ -292,6 +296,40 @@ function App() {
             )}
           </section>
         </>
+      )}
+
+      {quotePreview && (
+        <div
+          className="modal"
+          role="presentation"
+          onMouseDown={() => setQuotePreview(null)}
+        >
+          <section
+            className="dialog quotePreviewDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="home-quote-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="scheduleDialogClose"
+              onClick={() => setQuotePreview(null)}
+              aria-label="Close quote preview"
+            >
+              <X size={18} />
+            </button>
+            <h2 id="home-quote-preview-title">Quote preview</h2>
+            <img
+              className="quotePreviewImage"
+              src={`${import.meta.env.VITE_IMAGE_URL}${quotePreview.finalImageUrl}`}
+              alt={quotePreview.quote}
+            />
+            <p className="small">
+              “{quotePreview.quote}” — {quotePreview.author}
+            </p>
+          </section>
+        </div>
       )}
     </main>
   );
