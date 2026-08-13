@@ -563,6 +563,80 @@ textarea {
   cursor: not-allowed;
 }
 
+/* ---------- Schedule quote picker ---------- */
+.scheduleQuoteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.scheduleQuoteCard {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.scheduleQuoteCard:hover {
+  border-color: var(--accent-bright);
+  transform: translateY(-2px);
+}
+
+.scheduleQuoteCard:focus-visible {
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
+.scheduleQuoteCard.isSelected {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.28);
+}
+
+.scheduleQuoteCard img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.scheduleQuoteCardBody {
+  display: block;
+  padding: 14px;
+}
+
+.scheduleQuoteCardBody strong {
+  display: block;
+  margin-bottom: 8px;
+  font: 600 17px 'Playfair Display';
+}
+
+.scheduleQuoteSelection {
+  display: block;
+  margin-top: 12px;
+  color: var(--accent-bright);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.scheduleQuoteCard.isSelected .scheduleQuoteSelection {
+  color: var(--success);
+}
+
+.scheduleSuggestion {
+  margin: 0 0 16px !important;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(139, 92, 246, 0.11);
+  color: var(--text) !important;
+  font-size: 13px;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 750px) {
   header {
@@ -583,6 +657,9 @@ textarea {
   }
   .studioLayout {
     grid-template-columns: 1fr;
+  }
+  .scheduleQuoteGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .page {
     padding: 48px 25px;
@@ -607,5 +684,8 @@ textarea {
   }
   .picker {
     grid-template-columns: 1fr 1fr;
+  }
+  .scheduleQuoteGrid {
+    grid-template-columns: 1fr;
   }
 }

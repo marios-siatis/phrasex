@@ -869,7 +869,26 @@ function SchedulePage({ token }: { token: string }) {
     return now.toISOString();
   };
 
-  const getScheduleOptions = () => {
+  const getSuggestedScheduleTime = (
+    accountId = selectedAccountId,
+    posts = scheduledPosts
+  ) => {
+    const latestPost = posts
+      .filter((post) => accountId === null || post.instagramAccountId === accountId)
+      .sort(
+        (first, second) =>
+          new Date(second.scheduledAt).getTime() -
+          new Date(first.scheduledAt).getTime()
+      )[0];
+
+    if (!latestPost) return getNextAvailableTime();
+
+    return new Date(
+      new Date(latestPost.scheduledAt).getTime() + 3 * 60 * 60 * 1000
+    ).toISOString();
+  };
+
+  const getScheduleOptions = (suggestedTime = scheduledAt) => {
     const options: { value: string; label: string }[] = [];
     const start = new Date();
     start.setMinutes(start.getMinutes() + (30 - (start.getMinutes() % 30)));
@@ -882,6 +901,17 @@ function SchedulePage({ token }: { token: string }) {
         value: optionDate.toISOString(),
         label: optionDate.toLocaleString(),
       });
+    }
+
+    if (suggestedTime && !options.some((option) => option.value === suggestedTime)) {
+      options.push({
+        value: suggestedTime,
+        label: new Date(suggestedTime).toLocaleString(),
+      });
+      options.sort(
+        (first, second) =>
+          new Date(first.value).getTime() - new Date(second.value).getTime()
+      );
     }
 
     return options;
@@ -898,16 +928,18 @@ function SchedulePage({ token }: { token: string }) {
     setAccounts(Array.isArray(accountResponse) ? accountResponse : []);
     setScheduledPosts(Array.isArray(postsResponse) ? postsResponse : []);
 
-    if (!selectedQuoteId && quoteResponse?.length > 0) {
-      setSelectedQuoteId(quoteResponse[0].id);
-    }
-
     if (!selectedAccountId && accountResponse?.length > 0) {
       setSelectedAccountId(accountResponse[0].id);
     }
 
     if (!scheduledAt) {
-      setScheduledAt(getNextAvailableTime());
+      const initialAccountId = selectedAccountId ?? accountResponse?.[0]?.id ?? null;
+      setScheduledAt(
+        getSuggestedScheduleTime(
+          initialAccountId,
+          Array.isArray(postsResponse) ? postsResponse : []
+        )
+      );
     }
   };
 
@@ -1030,6 +1062,25 @@ function SchedulePage({ token }: { token: string }) {
       setBusy(false);
     }
   };
+
+  const selectQuote = (quoteId: string) => {
+    setSelectedQuoteId(quoteId);
+    setScheduledAt(getSuggestedScheduleTime());
+  };
+
+  const selectAccount = (accountId: number) => {
+    if (!accountId) {
+      setSelectedAccountId(null);
+      return;
+    }
+
+    setSelectedAccountId(accountId);
+    setScheduledAt(getSuggestedScheduleTime(accountId));
+  };
+
+  const selectedAccount = accounts.find(
+    (account) => account.id === selectedAccountId
+  );
 
   return (
     <section className="page studio">
@@ -1198,7 +1249,7 @@ function SchedulePage({ token }: { token: string }) {
                         <button
                           type="button"
                           className="textButton"
-                          onClick={() => setSelectedAccountId(account.id)}
+                          onClick={() => selectAccount(account.id)}
                         >
                           Use
                         </button>
@@ -1330,71 +1381,39 @@ function SchedulePage({ token }: { token: string }) {
                   </p>
                 </div>
               ) : (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: 16,
-                  }}
-                >
+                <div className="scheduleQuoteGrid">
                   {quoteImages.map((quote) => (
-                    <article
+                    <button
+                      type="button"
                       key={quote.id}
-                      style={{
-                        overflow: 'hidden',
-                        border: '1px solid rgba(0, 0, 0, 0.08)',
-                        borderRadius: 12,
-                      }}
+                      className={`scheduleQuoteCard${selectedQuoteId === quote.id ? ' isSelected' : ''
+                        }`}
+                      onClick={() => selectQuote(quote.id)}
+                      aria-pressed={selectedQuoteId === quote.id}
                     >
                       {quote.finalImageUrl && (
                         <img
-                          src={quote.finalImageUrl}
+                          src={`${import.meta.env.VITE_IMAGE_URL}${quote.finalImageUrl}`}
                           alt={quote.quote}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            aspectRatio: '1 / 1',
-                            objectFit: 'cover',
-                          }}
                         />
                       )}
 
-                      <div style={{ padding: 14 }}>
-                        <strong
-                          style={{
-                            display: 'block',
-                            marginBottom: 8,
-                          }}
-                        >
-                          {quote.quote}
-                        </strong>
+                      <span className="scheduleQuoteCardBody">
+                        <strong>{quote.quote}</strong>
 
-                        <div className="small">— {quote.author}</div>
+                        <span className="small">— {quote.author}</span>
 
                         {quote.category && (
-                          <div className="small">{quote.category}</div>
+                          <span className="small">{quote.category}</span>
                         )}
 
-                        <button
-                          type="button"
-                          className="gold"
-                          style={{
-                            width: '100%',
-                            marginTop: 12,
-                          }}
-                          onClick={() => {
-                            setSelectedQuoteId(quote.id);
-                            setTab('quotes');
-                          }}
-                          disabled={accounts.length === 0}
-                        >
+                        <span className="scheduleQuoteSelection">
                           {selectedQuoteId === quote.id
-                            ? 'Selected'
+                            ? 'Selected for scheduling'
                             : 'Select quote'}
-                        </button>
-                      </div>
-                    </article>
+                        </span>
+                      </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -1418,9 +1437,7 @@ function SchedulePage({ token }: { token: string }) {
                       Instagram account
                       <select
                         value={selectedAccountId ?? ''}
-                        onChange={(e) =>
-                          setSelectedAccountId(Number(e.target.value))
-                        }
+                        onChange={(e) => selectAccount(Number(e.target.value))}
                       >
                         <option value="">Choose an Instagram account</option>
                         {accounts.map((account) => (
@@ -1437,13 +1454,20 @@ function SchedulePage({ token }: { token: string }) {
                         value={scheduledAt}
                         onChange={(e) => setScheduledAt(e.target.value)}
                       >
-                        {getScheduleOptions().map((option) => (
+                        {getScheduleOptions(scheduledAt).map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
                         ))}
                       </select>
                     </label>
+
+                    <p className="scheduleSuggestion">
+                      Suggested time: <strong>{new Date(scheduledAt).toLocaleString()}</strong>
+                      {selectedAccount
+                        ? ` — three hours after ${selectedAccount.displayName}'s latest scheduled post.`
+                        : ' — three hours after the latest scheduled post.'}
+                    </p>
 
                     <button
                       type="button"
