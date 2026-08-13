@@ -165,7 +165,7 @@ await using (var scope = app.Services.CreateAsyncScope())
         db.SiteBrandings.Add(new SiteBranding
         {
             Title = "PhraseX",
-            Description = "Create meaningful branded quote images.",
+            Description = "Be good, even unseen.",
             LogoName = "phrasex.jpg"
         });
         shouldSave = true;

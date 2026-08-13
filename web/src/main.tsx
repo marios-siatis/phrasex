@@ -185,16 +185,16 @@ function App() {
           {user?.isAdmin && (
             <>
               <button className="adminLink" onClick={() => setView('admin')}>
-                Studio
+                Create
+              </button>
+              <button className="adminLink" onClick={() => setView('schedule')}>
+                Schedule
               </button>
               <button className="adminLink" onClick={() => setView('branding')}>
                 Branding
               </button>
               <button className="adminLink" onClick={() => setView('upload')}>
                 CSV Upload
-              </button>
-              <button className="adminLink" onClick={() => setView('schedule')}>
-                Schedule
               </button>
             </>
           )}
@@ -289,7 +289,7 @@ function App() {
               <br />
               <em>{branding?.description ?? 'Frame the moment.'}</em>
             </h1>
-            <p>{branding?.description ?? 'Search a visual world made for your next meaningful thought.'}</p>
+            <p>{ 'Frame the moment'}</p>
           </section>
 
           <section className="content">
@@ -1817,14 +1817,14 @@ function BrandingPage({
   onBrandingSaved: (b: Branding) => void;
 }) {
   const [title, setTitle] = useState(branding?.title ?? 'PhraseX');
-  const [description, setDescription] = useState(branding?.description ?? 'Create meaningful branded quote images.');
+  const [description, setDescription] = useState(branding?.description ?? 'Be good, even unseen.');
   const [logoName, setLogoName] = useState(branding?.logoName ?? '');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
     setTitle(branding?.title ?? 'PhraseX');
-    setDescription(branding?.description ?? 'Create meaningful branded quote images.');
+    setDescription(branding?.description ?? 'Be good, even unseen.');
     setLogoName(branding?.logoName ?? '');
   }, [branding]);
 

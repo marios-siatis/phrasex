@@ -583,7 +583,7 @@ public class PhraseXController : ControllerBase
 
         if (branding is null)
         {
-            return Ok(new BrandingResponse("PhraseX", "Create meaningful branded quote images.", "phrasex.jpg"));
+            return Ok(new BrandingResponse("PhraseX", "Be good, even unseen.", "phrasex.jpg"));
         }
 
         return Ok(new BrandingResponse(branding.Title, branding.Description, branding.LogoName));
