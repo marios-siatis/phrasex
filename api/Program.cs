@@ -202,8 +202,6 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
-
-
 // API
 app.MapControllers();
 

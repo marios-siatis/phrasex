@@ -55,17 +55,10 @@ public class PhraseXController : ControllerBase
         if (await _db.Users.AnyAsync(u => u.Email == email))
         {
             return Conflict(
-                new
-                {
-                    message = "Email is already registered."
-                });
+                new { message = "Email is already registered." });
         }
 
-        var user = new AppUser
-        {
-            Email = email,
-            DisplayName = request.DisplayName
-        };
+        var user = new AppUser { Email = email, DisplayName = request.DisplayName };
 
         user.PasswordHash =
             new PasswordHasher<AppUser>()
@@ -190,28 +183,19 @@ public class PhraseXController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Quote))
         {
             return BadRequest(
-                new
-                {
-                    message = "A quote is required."
-                });
+                new { message = "A quote is required." });
         }
 
         if (string.IsNullOrWhiteSpace(request.Author))
         {
             return BadRequest(
-                new
-                {
-                    message = "An author is required."
-                });
+                new { message = "An author is required." });
         }
 
         if (string.IsNullOrWhiteSpace(request.ImageUrl))
         {
             return BadRequest(
-                new
-                {
-                    message = "A source image is required."
-                });
+                new { message = "A source image is required." });
         }
 
         if (string.IsNullOrWhiteSpace(request.Category))
@@ -258,7 +242,8 @@ public class PhraseXController : ControllerBase
         {
             return BadRequest(new
             {
-                message = $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}."
+                message =
+                    $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}."
             });
         }
 
@@ -270,10 +255,7 @@ public class PhraseXController : ControllerBase
         if (string.IsNullOrWhiteSpace(logoName))
         {
             return BadRequest(
-                new
-                {
-                    message = "A logo is required. Set a default branding logo or choose one for this quote."
-                });
+                new { message = "A logo is required. Set a default branding logo or choose one for this quote." });
         }
 
         var finalUrl = await _imageComposer.ComposeAndStore(
@@ -313,6 +295,7 @@ public class PhraseXController : ControllerBase
                 {
                     _db.Tags.Add(tag);
                 }
+
                 quote.Tags.Add(tag);
             }
         }
@@ -402,30 +385,20 @@ public class PhraseXController : ControllerBase
             var categoryTextLine = values[categoryIndex].Trim();
 
             var isDuplicate = existingTextQuotes.Any(existing =>
-                QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
-                    existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold)) ||
-                imported.Any(existing =>
-                    QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
-                        existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold));
+                                  QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
+                                      existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold)) ||
+                              imported.Any(existing =>
+                                  QuoteMatchesByThreshold(quoteTextLine, authorTextLine, categoryTextLine,
+                                      existing.Quote, existing.Author, existing.Category, _quoteSimilarityThreshold));
 
             if (isDuplicate)
             {
-                duplicates.Add(new
-                {
-                    quote = quoteTextLine,
-                    author = authorTextLine,
-                    category = categoryTextLine
-                });
+                duplicates.Add(new { quote = quoteTextLine, author = authorTextLine, category = categoryTextLine });
 
                 continue;
             }
 
-            imported.Add(new TextQuote
-            {
-                Quote = quoteTextLine,
-                Author = authorTextLine,
-                Category = categoryTextLine
-            });
+            imported.Add(new TextQuote { Quote = quoteTextLine, Author = authorTextLine, Category = categoryTextLine });
         }
 
         if (imported.Count > 0)
@@ -434,11 +407,7 @@ public class PhraseXController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        return Ok(new
-        {
-            inserted = imported.Count,
-            duplicates
-        });
+        return Ok(new { inserted = imported.Count, duplicates });
     }
 
     private static string[] ParseCsvLine(string line)
@@ -527,7 +496,7 @@ public class PhraseXController : ControllerBase
         var containmentSimilarity = shorterWords.Length == 0
             ? 0.0
             : shorterWords.Count(word =>
-                longerWords.Contains(word, StringComparer.OrdinalIgnoreCase))
+                  longerWords.Contains(word, StringComparer.OrdinalIgnoreCase))
               / (double)shorterWords.Length;
 
         return Math.Max(characterSimilarity, containmentSimilarity);
@@ -749,88 +718,168 @@ public class PhraseXController : ControllerBase
     public async Task<IActionResult> GetInstagramAuthUrl()
     {
         var user = await CurrentUser();
-        if (!user.IsAdmin) return Forbid();
+
+        if (!user.IsAdmin)
+            return Forbid();
 
         var insta = _configuration.GetSection("Instagram");
+
         var appId = insta["AppId"];
         var redirect = insta["RedirectUri"];
-        var scope = insta["Scopes"] ?? "user_profile,user_media";
 
-        if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(redirect))
+        var scope = insta["Scopes"]
+                    ?? "instagram_business_basic,instagram_business_content_publish";
+
+        if (string.IsNullOrWhiteSpace(appId) ||
+            string.IsNullOrWhiteSpace(redirect))
         {
             return BadRequest(new { message = "Instagram configuration missing (AppId/RedirectUri)." });
         }
 
-        var authUrl = $"https://api.instagram.com/oauth/authorize?client_id={Uri.EscapeDataString(appId)}&redirect_uri={Uri.EscapeDataString(redirect)}&scope={Uri.EscapeDataString(scope)}&response_type=code";
+        var authUrl =
+            "https://www.instagram.com/oauth/authorize" +
+            $"?client_id={Uri.EscapeDataString(appId)}" +
+            $"&redirect_uri={Uri.EscapeDataString(redirect)}" +
+            $"&scope={Uri.EscapeDataString(scope)}" +
+            "&response_type=code";
 
         return Ok(new { url = authUrl });
     }
 
     [HttpGet("admin/instagramauth/callback")]
-    public async Task<IActionResult> InstagramAuthCallback([FromQuery] string? code)
+    [AllowAnonymous]
+    public async Task<IActionResult> InstagramAuthCallback(
+        [FromQuery] string? code)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            return BadRequest("Missing code");
+            return BadRequest(new { message = "Missing Instagram authorization code." });
         }
 
         var insta = _configuration.GetSection("Instagram");
+
         var appId = insta["AppId"];
         var appSecret = insta["AppSecret"];
         var redirect = insta["RedirectUri"];
-        var version = insta["GraphVersion"] ?? "10.0";
 
-        if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(appSecret) || string.IsNullOrWhiteSpace(redirect))
+        if (string.IsNullOrWhiteSpace(appId) ||
+            string.IsNullOrWhiteSpace(appSecret) ||
+            string.IsNullOrWhiteSpace(redirect))
         {
-            return BadRequest("Instagram configuration not set.");
+            return BadRequest(new { message = "Instagram configuration not set." });
         }
 
         var client = _httpClientFactory.CreateClient();
 
         try
         {
-            // Exchange code for short-lived access token (Graph API)
-            var tokenUrl = $"https://graph.facebook.com/v{version}/oauth/access_token?client_id={Uri.EscapeDataString(appId)}&redirect_uri={Uri.EscapeDataString(redirect)}&client_secret={Uri.EscapeDataString(appSecret)}&code={Uri.EscapeDataString(code)}";
-            var tokenResp = await client.GetStringAsync(tokenUrl);
-            using var doc = JsonDocument.Parse(tokenResp);
-            var root = doc.RootElement;
-            if (!root.TryGetProperty("access_token", out var accessTokenEl))
+            // Instagram Login token exchange.
+            var tokenResponse = await client.PostAsync(
+                "https://api.instagram.com/oauth/access_token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = appId,
+                    ["client_secret"] = appSecret,
+                    ["grant_type"] = "authorization_code",
+                    ["redirect_uri"] = redirect,
+                    ["code"] = code
+                }));
+
+            var tokenBody = await tokenResponse.Content.ReadAsStringAsync();
+
+            if (!tokenResponse.IsSuccessStatusCode)
             {
-                return BadRequest(new { message = "Failed to obtain access token from Instagram." });
+                return BadRequest(new { message = "Instagram token exchange failed.", details = tokenBody });
             }
 
-            var accessToken = accessTokenEl.GetString() ?? string.Empty;
+            using var tokenDoc = JsonDocument.Parse(tokenBody);
+            var tokenRoot = tokenDoc.RootElement;
 
-            // Get basic account info
-            var meUrl = $"https://graph.facebook.com/v{version}/me?fields=id,name&access_token={Uri.EscapeDataString(accessToken)}";
-            var meResp = await client.GetStringAsync(meUrl);
-            using var meDoc = JsonDocument.Parse(meResp);
-            var meRoot = meDoc.RootElement;
-            var igUserId = meRoot.GetProperty("id").GetString() ?? string.Empty;
-            var displayName = meRoot.GetProperty("name").GetString() ?? igUserId;
+            var accessToken =
+                tokenRoot.GetProperty("access_token").GetString();
 
-            // Save account
-            if (!await _db.InstagramAccounts.AnyAsync(a => a.InstagramUserId == igUserId))
+            var instagramUserId =
+                tokenRoot.GetProperty("user_id").GetInt64().ToString();
+
+            if (string.IsNullOrWhiteSpace(accessToken) ||
+                string.IsNullOrWhiteSpace(instagramUserId))
             {
-                var account = new InstagramAccount
+                return BadRequest(new { message = "Instagram did not return a valid access token." });
+            }
+
+            // Get Instagram account information using the Instagram User token.
+            var meUrl =
+                $"https://graph.instagram.com/me" +
+                $"?fields=id,user_id,username" +
+                $"&access_token={Uri.EscapeDataString(accessToken)}";
+
+            var meResponse = await client.GetAsync(meUrl);
+            var meBody = await meResponse.Content.ReadAsStringAsync();
+
+            if (!meResponse.IsSuccessStatusCode)
+            {
+                return BadRequest(new { message = "Failed to retrieve Instagram account.", details = meBody });
+            }
+
+            using var meDoc = JsonDocument.Parse(meBody);
+            var me = meDoc.RootElement;
+
+            var igUserId =
+                me.TryGetProperty("user_id", out var userIdElement)
+                    ? userIdElement.GetString()
+                    : instagramUserId;
+
+            var displayName =
+                me.TryGetProperty("username", out var usernameElement)
+                    ? usernameElement.GetString()
+                    : igUserId;
+
+            if (string.IsNullOrWhiteSpace(igUserId))
+            {
+                return BadRequest(new { message = "Could not determine Instagram user ID." });
+            }
+
+            // Update existing account or create a new one.
+            var account = await _db.InstagramAccounts
+                .FirstOrDefaultAsync(a => a.InstagramUserId == igUserId);
+
+            if (account == null)
+            {
+                account = new InstagramAccount
                 {
                     InstagramUserId = igUserId,
-                    DisplayName = displayName,
+                    DisplayName = displayName ?? igUserId,
                     AccessToken = accessToken,
                     RefreshToken = null
                 };
 
                 _db.InstagramAccounts.Add(account);
-                await _db.SaveChangesAsync();
+            }
+            else
+            {
+                account.DisplayName = displayName ?? account.DisplayName;
+                account.AccessToken = accessToken;
             }
 
-            // Simple success page
-            var html = $"<html><body><h1>Instagram connected</h1><p>Account {System.Net.WebUtility.HtmlEncode(displayName)} connected.</p><script>setTimeout(()=>window.close(),1200);</script></body></html>";
+            await _db.SaveChangesAsync();
+
+            var html = $"""
+                        <html>
+                        <body>
+                            <h1>Instagram connected</h1>
+                            <p>Account {System.Net.WebUtility.HtmlEncode(displayName ?? igUserId)} connected.</p>
+                            <script>
+                                setTimeout(() => window.close(), 1200);
+                            </script>
+                        </body>
+                        </html>
+                        """;
+
             return Content(html, "text/html");
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = "Instagram authentication failed.", details = ex.Message });
         }
     }
 
@@ -1041,11 +1090,9 @@ public class PhraseXController : ControllerBase
             new Claim(
                 ClaimTypes.NameIdentifier,
                 user.Id.ToString()),
-
             new Claim(
                 ClaimTypes.Email,
                 user.Email),
-
             new Claim(
                 "admin",
                 user.IsAdmin.ToString())
