@@ -986,24 +986,17 @@ public class PhraseXController : ControllerBase
         // protects against an outdated client accidentally posting a reschedule
         // request to the create endpoint.
         var existingPost = await _db.ScheduledPosts
-            .Where(p => p.QuoteImageId == request.QuoteImageId)
-            .OrderBy(p => p.Id)
+            .Where(p => p.QuoteImageId == request.QuoteImageId && !p.Posted)
+            .OrderBy(p => p.ScheduledAt < DateTime.UtcNow ? 0 : 1)
+            .ThenBy(p => p.Id)
             .FirstOrDefaultAsync();
 
         if (existingPost is not null)
         {
-            if (!existingPost.Posted && existingPost.ScheduledAt < DateTime.UtcNow)
-            {
-                existingPost.InstagramAccountId = request.InstagramAccountId;
-                existingPost.ScheduledAt = request.ScheduledAt;
-                await _db.SaveChangesAsync();
-                return NoContent();
-            }
-
-            return Conflict(new
-            {
-                message = "This quote already has a scheduled or posted record."
-            });
+            existingPost.InstagramAccountId = request.InstagramAccountId;
+            existingPost.ScheduledAt = request.ScheduledAt;
+            await _db.SaveChangesAsync();
+            return NoContent();
         }
 
         var scheduledPost = new ScheduledPost
@@ -1031,6 +1024,50 @@ public class PhraseXController : ControllerBase
                 quoteImage.Author,
                 quoteImage.Category,
                 quoteImage.FinalImageUrl)));
+    }
+
+    [HttpPut("admin/scheduledposts/{id:int}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> ReschedulePost(int id, ScheduledPostRequest request)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        var scheduledPost = await _db.ScheduledPosts.FindAsync(id);
+        if (scheduledPost is null)
+        {
+            return NotFound(new { message = "Scheduled post not found." });
+        }
+
+        if (scheduledPost.Posted)
+        {
+            return BadRequest(new { message = "Posted posts cannot be rescheduled." });
+        }
+
+        if (request.QuoteImageId != scheduledPost.QuoteImageId)
+        {
+            return BadRequest(new { message = "The quote image cannot be changed when rescheduling." });
+        }
+
+        var instagramAccount = await _db.InstagramAccounts.FindAsync(request.InstagramAccountId);
+        if (instagramAccount is null)
+        {
+            return BadRequest(new { message = "Instagram account not found." });
+        }
+
+        if (request.ScheduledAt.Kind == DateTimeKind.Unspecified)
+        {
+            return BadRequest(new { message = "Scheduled date and time must include a valid timezone." });
+        }
+
+        scheduledPost.InstagramAccountId = request.InstagramAccountId;
+        scheduledPost.ScheduledAt = request.ScheduledAt;
+        await _db.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpGet("quotes")]

@@ -1003,6 +1003,7 @@ function SchedulePage({ token }: { token: string }) {
     'asc'
   );
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [reschedulingPostId, setReschedulingPostId] = useState<number | null>(null);
   const [previewQuote, setPreviewQuote] = useState<AdminQuoteImage | null>(null);
 
   const getNextAvailableTime = () => {
@@ -1185,18 +1186,25 @@ function SchedulePage({ token }: { token: string }) {
     setNotice('');
 
     try {
-      await request('/admin/scheduledposts', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          quoteImageId: selectedQuoteId,
-          instagramAccountId: selectedAccountId,
-          scheduledAt,
-        }),
-      });
+      await request(
+        reschedulingPostId
+          ? `/admin/scheduledposts/${reschedulingPostId}`
+          : '/admin/scheduledposts',
+        token,
+        {
+          method: reschedulingPostId ? 'PUT' : 'POST',
+          body: JSON.stringify({
+            quoteImageId: selectedQuoteId,
+            instagramAccountId: selectedAccountId,
+            scheduledAt,
+          }),
+        }
+      );
 
       await load();
       setScheduleModalOpen(false);
-      setNotice('Scheduled post created.');
+      setReschedulingPostId(null);
+      setNotice(reschedulingPostId ? 'Scheduled post rescheduled.' : 'Scheduled post created.');
     } catch (err) {
       setNotice((err as Error).message);
     } finally {
@@ -1204,17 +1212,22 @@ function SchedulePage({ token }: { token: string }) {
     }
   };
 
-  const openScheduleModal = (quoteId: string, accountId = selectedAccountId) => {
+  const openScheduleModal = (
+    quoteId: string,
+    accountId = selectedAccountId,
+    postId: number | null = null
+  ) => {
     setSelectedQuoteId(quoteId);
     if (accountId !== null) setSelectedAccountId(accountId);
     setScheduledAt(getSuggestedScheduleTime(accountId));
+    setReschedulingPostId(postId);
     setScheduleModalOpen(true);
   };
 
   const selectQuote = (quoteId: string) => openScheduleModal(quoteId);
 
   const rescheduleFailedQuote = (post: ScheduledPost) => {
-    openScheduleModal(post.quoteImageId, post.instagramAccountId);
+    openScheduleModal(post.quoteImageId, post.instagramAccountId, post.id);
   };
 
   const selectAccount = (accountId: number) => {
@@ -1764,7 +1777,9 @@ function SchedulePage({ token }: { token: string }) {
             </button>
 
             <p className="eyebrow">SCHEDULE QUOTE</p>
-            <h2 id="schedule-dialog-title">Schedule this post</h2>
+            <h2 id="schedule-dialog-title">
+              {reschedulingPostId ? 'Reschedule this post' : 'Schedule this post'}
+            </h2>
             <p className="small scheduleDialogQuote">
               “{selectedQuote.quote}” — {selectedQuote.author}
             </p>
@@ -1817,7 +1832,11 @@ function SchedulePage({ token }: { token: string }) {
                   onClick={saveSchedule}
                   disabled={busy || !selectedAccountId || !scheduledAt}
                 >
-                  {busy ? 'Scheduling…' : 'Schedule post'}
+                  {busy
+                    ? 'Saving…'
+                    : reschedulingPostId
+                      ? 'Reschedule post'
+                      : 'Schedule post'}
                 </button>
               </>
             )}
