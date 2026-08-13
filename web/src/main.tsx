@@ -867,6 +867,7 @@ function SchedulePage({ token }: { token: string }) {
     'asc'
   );
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [previewQuote, setPreviewQuote] = useState<AdminQuoteImage | null>(null);
 
   const getNextAvailableTime = () => {
     return new Date().toISOString();
@@ -1525,6 +1526,7 @@ function SchedulePage({ token }: { token: string }) {
                   <table className="scheduleTable">
                     <thead>
                       <tr>
+                        <th>Preview</th>
                         <th>Quote</th>
                         <th>Account</th>
                         <th aria-sort={scheduleTimeSort === 'asc' ? 'ascending' : 'descending'}>
@@ -1549,6 +1551,23 @@ function SchedulePage({ token }: { token: string }) {
 
                         return (
                           <tr key={post.id}>
+                            <td>
+                              {post.quoteImage.finalImageUrl ? (
+                                <button
+                                  type="button"
+                                  className="scheduleThumbnail"
+                                  onClick={() => setPreviewQuote(post.quoteImage)}
+                                  aria-label={`Preview quote: ${post.quoteImage.quote}`}
+                                >
+                                  <img
+                                    src={`${import.meta.env.VITE_IMAGE_URL}${post.quoteImage.finalImageUrl}`}
+                                    alt=""
+                                  />
+                                </button>
+                              ) : (
+                                '—'
+                              )}
+                            </td>
                             <td>
                               <strong>{post.quoteImage.quote}</strong>
                               <span className="small">
@@ -1666,6 +1685,41 @@ function SchedulePage({ token }: { token: string }) {
                 </button>
               </>
             )}
+          </section>
+        </div>
+      )}
+
+      {previewQuote && (
+        <div
+          className="modal"
+          role="presentation"
+          onMouseDown={() => setPreviewQuote(null)}
+        >
+          <section
+            className="dialog quotePreviewDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quote-preview-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="scheduleDialogClose"
+              onClick={() => setPreviewQuote(null)}
+              aria-label="Close quote preview"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 id="quote-preview-title">Quote preview</h2>
+            <img
+              className="quotePreviewImage"
+              src={`${import.meta.env.VITE_IMAGE_URL}${previewQuote.finalImageUrl}`}
+              alt={previewQuote.quote}
+            />
+            <p className="small">
+              “{previewQuote.quote}” — {previewQuote.author}
+            </p>
           </section>
         </div>
       )}

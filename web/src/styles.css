@@ -748,6 +748,30 @@ textarea {
   margin-top: 4px;
 }
 
+.scheduleThumbnail {
+  display: block;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.scheduleThumbnail:hover,
+.scheduleThumbnail:focus-visible {
+  border-color: var(--accent-bright);
+  outline: none;
+}
+
+.scheduleThumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .scheduleStatus {
   display: inline-flex;
   padding: 5px 8px;
@@ -780,6 +804,21 @@ textarea {
   font-size: 13px;
   font-weight: 700;
   text-decoration: underline;
+}
+
+.quotePreviewDialog {
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.quotePreviewImage {
+  display: block;
+  width: 100%;
+  max-height: min(68vh, 640px);
+  margin: 20px 0 14px;
+  object-fit: contain;
+  background: var(--surface);
 }
 
 /* ---------- Responsive ---------- */
