@@ -287,6 +287,10 @@ function App() {
                       src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
                       alt={q.quote}
                     />
+                    <span className="quotePinDetails">
+                      <strong>“{q.quote}”</strong>
+                      <span>— {q.author}</span>
+                    </span>
                   </button>
                 ))}
                 {!quotes.length && (
