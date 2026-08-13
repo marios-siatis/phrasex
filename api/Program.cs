@@ -101,8 +101,6 @@ await using (var scope = app.Services.CreateAsyncScope())
     await db.Database.EnsureCreatedAsync();
 
     await db.Database.ExecuteSqlRawAsync(@"
-    DROP TABLE IF EXISTS public.""QuoteImages"";
-    DROP TABLE IF EXISTS public.""SiteBrandings"";
 
     CREATE TABLE IF NOT EXISTS public.quoteimages (
         id uuid PRIMARY KEY,
@@ -134,6 +132,24 @@ await using (var scope = app.Services.CreateAsyncScope())
         quoteimagesid uuid NOT NULL,
         tagsid integer NOT NULL,
         PRIMARY KEY (quoteimagesid, tagsid)
+    );
+    CREATE TABLE IF NOT EXISTS public.instagramaccounts (
+        id serial PRIMARY KEY,
+        instagramuserid text NOT NULL DEFAULT '',
+        displayname text NOT NULL DEFAULT '',
+        accesstoken text NOT NULL DEFAULT '',
+        refreshtoken text,
+        createdat timestamp without time zone NOT NULL DEFAULT now()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS instagramaccounts_instagramuserid_key
+        ON public.instagramaccounts (instagramuserid);
+    CREATE TABLE IF NOT EXISTS public.scheduledposts (
+        id serial PRIMARY KEY,
+        quoteimageid uuid NOT NULL,
+        instagramaccountid integer NOT NULL,
+        scheduledat timestamp without time zone NOT NULL,
+        createdat timestamp without time zone NOT NULL DEFAULT now(),
+        posted boolean NOT NULL DEFAULT false
     );
     CREATE TABLE IF NOT EXISTS public.textquotes (
         id serial PRIMARY KEY,
@@ -186,7 +202,16 @@ await using (var scope = app.Services.CreateAsyncScope())
     }
 }
 
+
+
 // API
 app.MapControllers();
+
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    service = "PhraseX.Api",
+    timestamp = DateTime.UtcNow
+})).AllowAnonymous();
 
 app.Run();

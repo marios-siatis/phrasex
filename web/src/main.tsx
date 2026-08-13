@@ -42,6 +42,34 @@ type Quote = {
   category?: string;
 };
 
+type AdminQuoteImage = {
+  id: string;
+  quote: string;
+  author: string;
+  category: string;
+  finalImageUrl: string;
+};
+
+type InstagramAccount = {
+  id: number;
+  instagramUserId: string;
+  displayName: string;
+  accessToken: string;
+  refreshToken?: string;
+  createdAt: string;
+};
+
+type ScheduledPost = {
+  id: number;
+  quoteImageId: string;
+  instagramAccountId: number;
+  instagramAccountDisplayName: string;
+  scheduledAt: string;
+  posted: boolean;
+  createdAt: string;
+  quoteImage: AdminQuoteImage;
+};
+
 const request = async (path: string, token?: string, options?: RequestInit) => {
   const response = await fetch(API + path, {
     ...options,
@@ -69,7 +97,7 @@ function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
   const [branding, setBranding] = useState<Branding | null>(null);
-  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload'>('home');
+  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule'>('home');
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -159,6 +187,9 @@ function App() {
               <button className="adminLink" onClick={() => setView('upload')}>
                 CSV Upload
               </button>
+              <button className="adminLink" onClick={() => setView('schedule')}>
+                Schedule
+              </button>
             </>
           )}
           <button className="avatar" onClick={() => setView('profile')}>
@@ -205,6 +236,10 @@ function App() {
 
       {view === 'upload' && user?.isAdmin && (
         <UploadCsvPage token={token} />
+      )}
+
+      {view === 'schedule' && user?.isAdmin && (
+        <SchedulePage token={token} />
       )}
 
       {view === 'home' && (
@@ -805,6 +840,293 @@ function UploadCsvPage({ token }: { token: string }) {
           </div>
         )}
       </div>
+    </section>
+  );
+}
+
+function SchedulePage({ token }: { token: string }) {
+  const [quoteImages, setQuoteImages] = useState<AdminQuoteImage[]>([]);
+  const [accounts, setAccounts] = useState<InstagramAccount[]>([]);
+  const [scheduledPosts, setScheduledPosts] = useState<ScheduledPost[]>([]);
+  const [selectedQuoteId, setSelectedQuoteId] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [accountForm, setAccountForm] = useState({
+    instagramUserId: '',
+    displayName: '',
+    accessToken: '',
+    refreshToken: '',
+  });
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    const [quoteResponse, accountResponse, postsResponse] = await Promise.all([
+      request('/admin/quoteimages', token),
+      request('/admin/instagramaccounts', token),
+      request('/admin/scheduledposts', token),
+    ]);
+
+    setQuoteImages(quoteResponse);
+    setAccounts(accountResponse);
+    setScheduledPosts(postsResponse);
+
+    if (!scheduledAt && quoteResponse.length > 0) {
+      setSelectedQuoteId(quoteResponse[0].id);
+    }
+
+    if (!selectedAccountId && accountResponse.length > 0) {
+      setSelectedAccountId(accountResponse[0].id);
+    }
+
+    if (!scheduledAt) {
+      setScheduledAt(getNextAvailableTime());
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return;
+    load().catch((err) => setNotice((err as Error).message));
+  }, [token]);
+
+  const getNextAvailableTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + (30 - (now.getMinutes() % 30)));
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+    return now.toISOString();
+  };
+
+  const getScheduleOptions = () => {
+    const options: { value: string; label: string }[] = [];
+    const start = new Date();
+    start.setMinutes(start.getMinutes() + (30 - (start.getMinutes() % 30)));
+    start.setSeconds(0);
+    start.setMilliseconds(0);
+
+    for (let i = 0; i < 56; i += 1) {
+      const optionDate = new Date(start.getTime() + i * 30 * 60 * 1000);
+      options.push({
+        value: optionDate.toISOString(),
+        label: optionDate.toLocaleString(),
+      });
+    }
+
+    return options;
+  };
+
+  const refresh = async () => {
+    setBusy(true);
+    setNotice('');
+    try {
+      await load();
+      setNotice('Schedule data refreshed.');
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveAccount = async () => {
+    if (!accountForm.instagramUserId.trim() || !accountForm.displayName.trim() || !accountForm.accessToken.trim()) {
+      setNotice('Instagram user ID, display name, and access token are required.');
+      return;
+    }
+
+    setBusy(true);
+    setNotice('');
+
+    try {
+      const created = await request('/admin/instagramaccounts', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          instagramUserId: accountForm.instagramUserId.trim(),
+          displayName: accountForm.displayName.trim(),
+          accessToken: accountForm.accessToken.trim(),
+          refreshToken: accountForm.refreshToken.trim() || null,
+        }),
+      });
+
+      setAccounts((current) => [...current, created]);
+      setSelectedAccountId(created.id);
+      setAccountForm({ instagramUserId: '', displayName: '', accessToken: '', refreshToken: '' });
+      setNotice('Instagram account saved.');
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveSchedule = async () => {
+    if (!selectedQuoteId || !selectedAccountId || !scheduledAt) {
+      setNotice('Select a quote, account, and scheduled time.');
+      return;
+    }
+
+    setBusy(true);
+    setNotice('');
+
+    try {
+      await request('/admin/scheduledposts', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          quoteImageId: selectedQuoteId,
+          instagramAccountId: selectedAccountId,
+          scheduledAt,
+        }),
+      });
+
+      await refresh();
+      setNotice('Scheduled post created.');
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="page studio">
+      <p className="eyebrow">SCHEDULING</p>
+      <h1>Instagram scheduling</h1>
+      <p className="intro">Add Instagram accounts, choose a saved quote, and schedule it for posting.</p>
+
+      <div className="studioSection">
+        <div>
+          <h2>Instagram accounts</h2>
+          <label>
+            Instagram user ID
+            <input
+              value={accountForm.instagramUserId}
+              onChange={(e) => setAccountForm({ ...accountForm, instagramUserId: e.target.value })}
+            />
+          </label>
+          <label>
+            Display name
+            <input
+              value={accountForm.displayName}
+              onChange={(e) => setAccountForm({ ...accountForm, displayName: e.target.value })}
+            />
+          </label>
+          <label>
+            Access token
+            <input
+              value={accountForm.accessToken}
+              onChange={(e) => setAccountForm({ ...accountForm, accessToken: e.target.value })}
+            />
+          </label>
+          <label>
+            Refresh token
+            <input
+              value={accountForm.refreshToken}
+              onChange={(e) => setAccountForm({ ...accountForm, refreshToken: e.target.value })}
+            />
+          </label>
+          <button type="button" className="gold" onClick={saveAccount} disabled={busy}>
+            {busy ? 'Saving…' : 'Save Instagram account'}
+          </button>
+
+          <div className="listSection">
+            <h3>Connected accounts</h3>
+            {accounts.length ? (
+              <ul className="simpleList">
+                {accounts.map((account) => (
+                  <li key={account.id}>
+                    <strong>{account.displayName}</strong>
+                    <div>{account.instagramUserId}</div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="small">No Instagram accounts connected yet.</p>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <h2>Schedule a quote</h2>
+
+          <label>
+            Quote image
+            <select
+              value={selectedQuoteId}
+              onChange={(e) => setSelectedQuoteId(e.target.value)}
+            >
+              <option value="">Choose a saved quote image</option>
+              {quoteImages.map((quote) => (
+                <option key={quote.id} value={quote.id}>
+                  {quote.quote.slice(0, 80)} — {quote.author}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Instagram account
+            <select
+              value={selectedAccountId ?? ''}
+              onChange={(e) => setSelectedAccountId(Number(e.target.value))}
+            >
+              <option value="">Choose an Instagram account</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Scheduled time
+            <select
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+            >
+              {getScheduleOptions().map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button type="button" className="gold" onClick={saveSchedule} disabled={busy}>
+            {busy ? 'Scheduling…' : 'Schedule post'}
+          </button>
+
+          {notice && <p className="small">{notice}</p>}
+        </div>
+      </div>
+
+      <section className="studioSection">
+        <h2>Scheduled posts</h2>
+        {scheduledPosts.length ? (
+          <table className="scheduleTable">
+            <thead>
+              <tr>
+                <th>Quote</th>
+                <th>Account</th>
+                <th>Scheduled</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {scheduledPosts.map((post) => (
+                <tr key={post.id}>
+                  <td>{post.quoteImage.quote.slice(0, 70)}...</td>
+                  <td>{post.instagramAccountDisplayName}</td>
+                  <td>{new Date(post.scheduledAt).toLocaleString()}</td>
+                  <td>{post.posted ? 'Posted' : 'Pending'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="small">No scheduled posts yet.</p>
+        )}
+      </section>
     </section>
   );
 }

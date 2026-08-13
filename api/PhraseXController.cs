@@ -2,6 +2,7 @@ using System.IO;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -35,16 +36,6 @@ public class PhraseXController : ControllerBase
         _imageComposer = imageComposer;
         _environment = environment;
         _quoteSimilarityThreshold = configuration.GetValue<double>("ThresholdQuoteSimilarity", 0.75);
-    }
-
-    // ==========================================
-    // Health
-    // ==========================================
-
-    [HttpGet("/health")]
-    public IActionResult Health()
-    {
-        return Ok(new { status = "ok" });
     }
 
     // ==========================================
@@ -672,6 +663,190 @@ public class PhraseXController : ControllerBase
         await _db.SaveChangesAsync();
 
         return Ok(new BrandingResponse(branding.Title, branding.Description, branding.LogoName));
+    }
+
+    [HttpGet("admin/instagramaccounts")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetInstagramAccounts()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        var accounts = await _db.InstagramAccounts
+            .OrderBy(a => a.DisplayName)
+            .Select(a => new InstagramAccountDto(
+                a.Id,
+                a.InstagramUserId,
+                a.DisplayName,
+                a.AccessToken,
+                a.RefreshToken,
+                a.CreatedAt))
+            .ToListAsync();
+
+        return Ok(accounts);
+    }
+
+    [HttpPost("admin/instagramaccounts")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateInstagramAccount(InstagramAccountRequest request)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.InstagramUserId))
+        {
+            return BadRequest(new { message = "Instagram user ID is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName))
+        {
+            return BadRequest(new { message = "Display name is required." });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.AccessToken))
+        {
+            return BadRequest(new { message = "Access token is required." });
+        }
+
+        if (await _db.InstagramAccounts.AnyAsync(a => a.InstagramUserId == request.InstagramUserId))
+        {
+            return Conflict(new { message = "Instagram account already exists." });
+        }
+
+        var account = new InstagramAccount
+        {
+            InstagramUserId = request.InstagramUserId.Trim(),
+            DisplayName = request.DisplayName.Trim(),
+            AccessToken = request.AccessToken.Trim(),
+            RefreshToken = request.RefreshToken?.Trim()
+        };
+
+        _db.InstagramAccounts.Add(account);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/admin/instagramaccounts/{account.Id}", new InstagramAccountDto(
+            account.Id,
+            account.InstagramUserId,
+            account.DisplayName,
+            account.AccessToken,
+            account.RefreshToken,
+            account.CreatedAt));
+    }
+
+    [HttpGet("admin/quoteimages")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetAdminQuoteImages()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        var quoteImages = await _db.QuoteImages
+            .OrderByDescending(q => q.CreatedAt)
+            .Select(q => new QuoteImageDto(
+                q.Id,
+                q.Quote,
+                q.Author,
+                q.Category,
+                q.FinalImageUrl))
+            .ToListAsync();
+
+        return Ok(quoteImages);
+    }
+
+    [HttpGet("admin/scheduledposts")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetScheduledPosts()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        var posts = await _db.ScheduledPosts
+            .Include(p => p.QuoteImage)
+            .Include(p => p.InstagramAccount)
+            .OrderByDescending(p => p.ScheduledAt)
+            .Select(p => new ScheduledPostDto(
+                p.Id,
+                p.QuoteImageId,
+                p.InstagramAccountId,
+                p.InstagramAccount.DisplayName,
+                p.ScheduledAt,
+                p.Posted,
+                p.CreatedAt,
+                new QuoteImageDto(
+                    p.QuoteImage.Id,
+                    p.QuoteImage.Quote,
+                    p.QuoteImage.Author,
+                    p.QuoteImage.Category,
+                    p.QuoteImage.FinalImageUrl)))
+            .ToListAsync();
+
+        return Ok(posts);
+    }
+
+    [HttpPost("admin/scheduledposts")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateScheduledPost(ScheduledPostRequest request)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin)
+        {
+            return Forbid();
+        }
+
+        var quoteImage = await _db.QuoteImages.FindAsync(request.QuoteImageId);
+        if (quoteImage is null)
+        {
+            return BadRequest(new { message = "Quote image not found." });
+        }
+
+        var instagramAccount = await _db.InstagramAccounts.FindAsync(request.InstagramAccountId);
+        if (instagramAccount is null)
+        {
+            return BadRequest(new { message = "Instagram account not found." });
+        }
+
+        if (request.ScheduledAt.Kind == DateTimeKind.Unspecified)
+        {
+            return BadRequest(new { message = "Scheduled date and time must include a valid timezone." });
+        }
+
+        var scheduledPost = new ScheduledPost
+        {
+            QuoteImageId = request.QuoteImageId,
+            InstagramAccountId = request.InstagramAccountId,
+            ScheduledAt = request.ScheduledAt,
+            Posted = false
+        };
+
+        _db.ScheduledPosts.Add(scheduledPost);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/admin/scheduledposts/{scheduledPost.Id}", new ScheduledPostDto(
+            scheduledPost.Id,
+            scheduledPost.QuoteImageId,
+            scheduledPost.InstagramAccountId,
+            instagramAccount.DisplayName,
+            scheduledPost.ScheduledAt,
+            scheduledPost.Posted,
+            scheduledPost.CreatedAt,
+            new QuoteImageDto(
+                quoteImage.Id,
+                quoteImage.Quote,
+                quoteImage.Author,
+                quoteImage.Category,
+                quoteImage.FinalImageUrl)));
     }
 
     [HttpGet("quotes")]
