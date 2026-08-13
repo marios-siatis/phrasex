@@ -2,6 +2,8 @@ using System.IO;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Net.Http;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -22,19 +24,22 @@ public class PhraseXController : ControllerBase
     private readonly ImageComposer _imageComposer;
     private readonly IWebHostEnvironment _environment;
     private readonly double _quoteSimilarityThreshold;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     public PhraseXController(
         AppDbContext db,
         IConfiguration configuration,
         PexelsClient pexelsClient,
         ImageComposer imageComposer,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IHttpClientFactory httpClientFactory)
     {
         _db = db;
         _configuration = configuration;
         _pexelsClient = pexelsClient;
         _imageComposer = imageComposer;
         _environment = environment;
+        _httpClientFactory = httpClientFactory;
         _quoteSimilarityThreshold = configuration.GetValue<double>("ThresholdQuoteSimilarity", 0.75);
     }
 
@@ -737,6 +742,112 @@ public class PhraseXController : ControllerBase
             account.AccessToken,
             account.RefreshToken,
             account.CreatedAt));
+    }
+
+    [HttpGet("admin/instagramauth/url")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetInstagramAuthUrl()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var insta = _configuration.GetSection("Instagram");
+        var appId = insta["AppId"];
+        var redirect = insta["RedirectUri"];
+        var scope = insta["Scopes"] ?? "user_profile,user_media";
+
+        if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(redirect))
+        {
+            return BadRequest(new { message = "Instagram configuration missing (AppId/RedirectUri)." });
+        }
+
+        var authUrl = $"https://api.instagram.com/oauth/authorize?client_id={Uri.EscapeDataString(appId)}&redirect_uri={Uri.EscapeDataString(redirect)}&scope={Uri.EscapeDataString(scope)}&response_type=code";
+
+        return Ok(new { url = authUrl });
+    }
+
+    [HttpGet("admin/instagramauth/callback")]
+    public async Task<IActionResult> InstagramAuthCallback([FromQuery] string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest("Missing code");
+        }
+
+        var insta = _configuration.GetSection("Instagram");
+        var appId = insta["AppId"];
+        var appSecret = insta["AppSecret"];
+        var redirect = insta["RedirectUri"];
+        var version = insta["GraphVersion"] ?? "10.0";
+
+        if (string.IsNullOrWhiteSpace(appId) || string.IsNullOrWhiteSpace(appSecret) || string.IsNullOrWhiteSpace(redirect))
+        {
+            return BadRequest("Instagram configuration not set.");
+        }
+
+        var client = _httpClientFactory.CreateClient();
+
+        try
+        {
+            // Exchange code for short-lived access token (Graph API)
+            var tokenUrl = $"https://graph.facebook.com/v{version}/oauth/access_token?client_id={Uri.EscapeDataString(appId)}&redirect_uri={Uri.EscapeDataString(redirect)}&client_secret={Uri.EscapeDataString(appSecret)}&code={Uri.EscapeDataString(code)}";
+            var tokenResp = await client.GetStringAsync(tokenUrl);
+            using var doc = JsonDocument.Parse(tokenResp);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("access_token", out var accessTokenEl))
+            {
+                return BadRequest(new { message = "Failed to obtain access token from Instagram." });
+            }
+
+            var accessToken = accessTokenEl.GetString() ?? string.Empty;
+
+            // Get basic account info
+            var meUrl = $"https://graph.facebook.com/v{version}/me?fields=id,name&access_token={Uri.EscapeDataString(accessToken)}";
+            var meResp = await client.GetStringAsync(meUrl);
+            using var meDoc = JsonDocument.Parse(meResp);
+            var meRoot = meDoc.RootElement;
+            var igUserId = meRoot.GetProperty("id").GetString() ?? string.Empty;
+            var displayName = meRoot.GetProperty("name").GetString() ?? igUserId;
+
+            // Save account
+            if (!await _db.InstagramAccounts.AnyAsync(a => a.InstagramUserId == igUserId))
+            {
+                var account = new InstagramAccount
+                {
+                    InstagramUserId = igUserId,
+                    DisplayName = displayName,
+                    AccessToken = accessToken,
+                    RefreshToken = null
+                };
+
+                _db.InstagramAccounts.Add(account);
+                await _db.SaveChangesAsync();
+            }
+
+            // Simple success page
+            var html = $"<html><body><h1>Instagram connected</h1><p>Account {System.Net.WebUtility.HtmlEncode(displayName)} connected.</p><script>setTimeout(()=>window.close(),1200);</script></body></html>";
+            return Content(html, "text/html");
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpDelete("admin/instagramaccounts/{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteInstagramAccount(int id)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var account = await _db.InstagramAccounts.FindAsync(id);
+        if (account is null) return NotFound();
+
+        _db.InstagramAccounts.Remove(account);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpGet("admin/quoteimages")]

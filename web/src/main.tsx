@@ -859,6 +859,7 @@ function SchedulePage({ token }: { token: string }) {
   });
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<'accounts' | 'quotes'>('accounts');
 
   const load = async () => {
     const [quoteResponse, accountResponse, postsResponse] = await Promise.all([
@@ -959,6 +960,32 @@ function SchedulePage({ token }: { token: string }) {
     }
   };
 
+  const connectWithInstagram = async () => {
+    try {
+      const res = await request('/admin/instagramauth/url', token);
+      if (res?.url) {
+        window.open(res.url, '_blank', 'noopener');
+        setNotice('Auth window opened. Complete the Instagram auth, then click Refresh.');
+      }
+    } catch (err) {
+      setNotice((err as Error).message);
+    }
+  };
+
+  const disconnectAccount = async (id: number) => {
+    if (!confirm('Disconnect this Instagram account?')) return;
+    setBusy(true);
+    try {
+      await request(`/admin/instagramaccounts/${id}`, token, { method: 'DELETE' });
+      await refresh();
+      setNotice('Account disconnected.');
+    } catch (err) {
+      setNotice((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveSchedule = async () => {
     if (!selectedQuoteId || !selectedAccountId || !scheduledAt) {
       setNotice('Select a quote, account, and scheduled time.');
@@ -994,8 +1021,14 @@ function SchedulePage({ token }: { token: string }) {
       <p className="intro">Add Instagram accounts, choose a saved quote, and schedule it for posting.</p>
 
       <div className="studioSection">
-        <div>
-          <h2>Instagram accounts</h2>
+        <div style={{ marginBottom: 12 }}>
+          <button type="button" className={tab === 'accounts' ? 'gold' : 'textButton'} onClick={() => setTab('accounts')}>Accounts</button>
+          <button type="button" className={tab === 'quotes' ? 'gold' : 'textButton'} onClick={() => setTab('quotes')} style={{ marginLeft: 8 }}>Quotes</button>
+        </div>
+
+        {tab === 'accounts' && (
+          <div>
+            <h2>Instagram accounts</h2>
           <label>
             Instagram user ID
             <input
@@ -1024,18 +1057,32 @@ function SchedulePage({ token }: { token: string }) {
               onChange={(e) => setAccountForm({ ...accountForm, refreshToken: e.target.value })}
             />
           </label>
-          <button type="button" className="gold" onClick={saveAccount} disabled={busy}>
-            {busy ? 'Saving…' : 'Save Instagram account'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button type="button" className="gold" onClick={saveAccount} disabled={busy}>
+              {busy ? 'Saving…' : 'Save (manual)'}
+            </button>
+            <button type="button" className="outline" onClick={connectWithInstagram} disabled={busy}>
+              Connect via Instagram
+            </button>
+            <button type="button" className="textButton" onClick={refresh} disabled={busy}>
+              Refresh
+            </button>
+          </div>
 
           <div className="listSection">
             <h3>Connected accounts</h3>
             {accounts.length ? (
               <ul className="simpleList">
                 {accounts.map((account) => (
-                  <li key={account.id}>
-                    <strong>{account.displayName}</strong>
-                    <div>{account.instagramUserId}</div>
+                  <li key={account.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong>{account.displayName}</strong>
+                      <div style={{ fontSize: 13 }}>{account.instagramUserId}</div>
+                    </div>
+                    <div>
+                      <button className="textButton" onClick={() => setSelectedAccountId(account.id)}>Use</button>
+                      <button className="textButton" onClick={() => disconnectAccount(account.id)} style={{ marginLeft: 8 }}>Disconnect</button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1043,10 +1090,12 @@ function SchedulePage({ token }: { token: string }) {
               <p className="small">No Instagram accounts connected yet.</p>
             )}
           </div>
-        </div>
+          </div>
+        )}
 
-        <div>
-          <h2>Schedule a quote</h2>
+        {tab === 'quotes' && (
+          <div>
+            <h2>Schedule a quote</h2>
 
           <label>
             Quote image
@@ -1097,7 +1146,8 @@ function SchedulePage({ token }: { token: string }) {
           </button>
 
           {notice && <p className="small">{notice}</p>}
-        </div>
+          </div>
+        )}
       </div>
 
       <section className="studioSection">
