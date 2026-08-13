@@ -771,6 +771,17 @@ textarea {
   background: rgba(255, 128, 128, 0.12);
 }
 
+.scheduleReschedule {
+  display: block;
+  margin-top: 8px;
+  padding: 0;
+  color: var(--accent-bright);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 750px) {
   header {

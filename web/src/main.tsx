@@ -1067,10 +1067,17 @@ function SchedulePage({ token }: { token: string }) {
     }
   };
 
-  const selectQuote = (quoteId: string) => {
+  const openScheduleModal = (quoteId: string, accountId = selectedAccountId) => {
     setSelectedQuoteId(quoteId);
-    setScheduledAt(getSuggestedScheduleTime());
+    if (accountId !== null) setSelectedAccountId(accountId);
+    setScheduledAt(getSuggestedScheduleTime(accountId));
     setScheduleModalOpen(true);
+  };
+
+  const selectQuote = (quoteId: string) => openScheduleModal(quoteId);
+
+  const rescheduleFailedQuote = (post: ScheduledPost) => {
+    openScheduleModal(post.quoteImageId, post.instagramAccountId);
   };
 
   const selectAccount = (accountId: number) => {
@@ -1554,6 +1561,15 @@ function SchedulePage({ token }: { token: string }) {
                               <span className={`scheduleStatus ${status}`}>
                                 {status[0].toUpperCase() + status.slice(1)}
                               </span>
+                              {status === 'failed' && (
+                                <button
+                                  type="button"
+                                  className="scheduleReschedule"
+                                  onClick={() => rescheduleFailedQuote(post)}
+                                >
+                                  Reschedule
+                                </button>
+                              )}
                             </td>
                           </tr>
                         );
