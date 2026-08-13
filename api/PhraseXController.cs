@@ -982,6 +982,30 @@ public class PhraseXController : ControllerBase
             return BadRequest(new { message = "Scheduled date and time must include a valid timezone." });
         }
 
+        // A quote image can only have one active scheduling record. This also
+        // protects against an outdated client accidentally posting a reschedule
+        // request to the create endpoint.
+        var existingPost = await _db.ScheduledPosts
+            .Where(p => p.QuoteImageId == request.QuoteImageId)
+            .OrderBy(p => p.Id)
+            .FirstOrDefaultAsync();
+
+        if (existingPost is not null)
+        {
+            if (!existingPost.Posted && existingPost.ScheduledAt < DateTime.UtcNow)
+            {
+                existingPost.InstagramAccountId = request.InstagramAccountId;
+                existingPost.ScheduledAt = request.ScheduledAt;
+                await _db.SaveChangesAsync();
+                return NoContent();
+            }
+
+            return Conflict(new
+            {
+                message = "This quote already has a scheduled or posted record."
+            });
+        }
+
         var scheduledPost = new ScheduledPost
         {
             QuoteImageId = request.QuoteImageId,
