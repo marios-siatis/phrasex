@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Heart, Search, Sparkles, UserRound, X } from 'lucide-react';
+import { Heart, LogOut, Search, Sparkles, UserRound, X } from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -101,6 +101,7 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   useEffect(() => {
     request('/categories').then(setCategories);
@@ -147,6 +148,13 @@ function App() {
     setAuthOpen(false);
   };
 
+  const signOut = () => {
+    localStorage.removeItem('px_token');
+    setToken('');
+    setUser(null);
+    setProfileMenuOpen(false);
+  };
+
   if (!token) {
     return (
       <>
@@ -174,9 +182,6 @@ function App() {
         </form>
 
         <nav>
-          <button className="icon" onClick={() => setView('profile')} title="Profile">
-            <UserRound />
-          </button>
           {user?.isAdmin && (
             <>
               <button className="adminLink" onClick={() => setView('admin')}>
@@ -193,9 +198,41 @@ function App() {
               </button>
             </>
           )}
-          <button className="avatar" onClick={() => setView('profile')}>
+          <div className="profileMenu">
+            <button
+              className="icon"
+              onClick={() => setProfileMenuOpen((open) => !open)}
+              title="Account menu"
+              aria-label="Account menu"
+              aria-expanded={profileMenuOpen}
+            >
+              <UserRound />
+            </button>
+          <button
+            className="avatar"
+            onClick={() => setProfileMenuOpen((open) => !open)}
+            aria-label="Account menu"
+            aria-expanded={profileMenuOpen}
+          >
             {user?.displayName?.[0]}
           </button>
+          {profileMenuOpen && (
+            <div className="profileMenuPopover">
+              <button
+                type="button"
+                onClick={() => {
+                  setView('profile');
+                  setProfileMenuOpen(false);
+                }}
+              >
+                <UserRound size={16} /> Profile
+              </button>
+              <button type="button" onClick={signOut}>
+                <LogOut size={16} /> Log out
+              </button>
+            </div>
+          )}
+          </div>
         </nav>
       </header>
 

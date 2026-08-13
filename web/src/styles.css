@@ -135,6 +135,44 @@ nav {
   font-weight: bold;
 }
 
+.profileMenu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.profileMenuPopover {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 5;
+  width: 155px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+}
+
+.profileMenuPopover button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 9px;
+  padding: 10px;
+  color: var(--text);
+  background: transparent;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.profileMenuPopover button:hover,
+.profileMenuPopover button:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}
+
 /* ---------- Hero ---------- */
 .hero {
   /* min-height: 410px; */
