@@ -859,7 +859,10 @@ function SchedulePage({ token }: { token: string }) {
   });
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'accounts' | 'quotes'>('accounts');
+  const [tab, setTab] = useState<'accounts' | 'quotes' | 'scheduled'>('accounts');
+  const [scheduleStatusFilter, setScheduleStatusFilter] = useState<
+    'all' | 'failed' | 'scheduled' | 'posted'
+  >('all');
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const getNextAvailableTime = () => {
@@ -1081,6 +1084,23 @@ function SchedulePage({ token }: { token: string }) {
     (account) => account.id === selectedAccountId
   );
   const selectedQuote = quoteImages.find((quote) => quote.id === selectedQuoteId);
+  const scheduledQuoteIds = new Set(
+    scheduledPosts.map((post) => post.quoteImageId)
+  );
+  const availableQuoteImages = quoteImages.filter(
+    (quote) => !scheduledQuoteIds.has(quote.id)
+  );
+  const getPostStatus = (post: ScheduledPost) => {
+    if (post.posted) return 'posted';
+    return new Date(post.scheduledAt).getTime() < Date.now()
+      ? 'failed'
+      : 'scheduled';
+  };
+  const filteredScheduledPosts = scheduledPosts.filter(
+    (post) =>
+      scheduleStatusFilter === 'all' ||
+      getPostStatus(post) === scheduleStatusFilter
+  );
 
   return (
     <section className="page studio">
@@ -1168,7 +1188,28 @@ function SchedulePage({ token }: { token: string }) {
               className="small"
               style={{ display: 'block', marginTop: 4 }}
             >
-              {quoteImages.length} available
+              {availableQuoteImages.length} available
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab('scheduled')}
+            className={tab === 'scheduled' ? 'gold' : 'textButton'}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              marginTop: 8,
+              padding: '12px 14px',
+              borderRadius: 10,
+            }}
+          >
+            <strong>Scheduled quotes</strong>
+            <span
+              className="small"
+              style={{ display: 'block', marginTop: 4 }}
+            >
+              {scheduledPosts.length} total
             </span>
           </button>
         </aside>
@@ -1366,7 +1407,7 @@ function SchedulePage({ token }: { token: string }) {
                 </p>
               </div>
 
-              {quoteImages.length === 0 ? (
+              {availableQuoteImages.length === 0 ? (
                 <div
                   style={{
                     padding: 24,
@@ -1374,15 +1415,15 @@ function SchedulePage({ token }: { token: string }) {
                     borderRadius: 12,
                   }}
                 >
-                  <strong>No quote images available</strong>
+                  <strong>No unscheduled quote images available</strong>
                   <p className="small">
-                    Create an image quote first, then return here to schedule
-                    it.
+                    Create a new quote image, or review the existing ones in
+                    Scheduled quotes.
                   </p>
                 </div>
               ) : (
                 <div className="scheduleQuoteGrid">
-                  {quoteImages.map((quote) => (
+                  {availableQuoteImages.map((quote) => (
                     <button
                       type="button"
                       key={quote.id}
@@ -1420,58 +1461,90 @@ function SchedulePage({ token }: { token: string }) {
 
             </div>
           )}
+
+          {tab === 'scheduled' && (
+            <div>
+              <div className="scheduleQueueHeader">
+                <div>
+                  <p className="eyebrow">QUEUE</p>
+                  <h2>Scheduled quotes</h2>
+                  <p className="small">
+                    Failed means the scheduled time has passed and the post has
+                    not been marked as posted.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="textButton"
+                  onClick={refresh}
+                  disabled={busy}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              <div className="scheduleFilters" aria-label="Filter scheduled quotes">
+                {(['all', 'scheduled', 'posted', 'failed'] as const).map(
+                  (status) => (
+                    <button
+                      type="button"
+                      key={status}
+                      className={
+                        scheduleStatusFilter === status ? 'isActive' : ''
+                      }
+                      onClick={() => setScheduleStatusFilter(status)}
+                      aria-pressed={scheduleStatusFilter === status}
+                    >
+                      {status[0].toUpperCase() + status.slice(1)}
+                    </button>
+                  )
+                )}
+              </div>
+
+              {filteredScheduledPosts.length ? (
+                <div className="scheduleTableWrap">
+                  <table className="scheduleTable">
+                    <thead>
+                      <tr>
+                        <th>Quote</th>
+                        <th>Account</th>
+                        <th>Scheduled for</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredScheduledPosts.map((post) => {
+                        const status = getPostStatus(post);
+
+                        return (
+                          <tr key={post.id}>
+                            <td>
+                              <strong>{post.quoteImage.quote}</strong>
+                              <span className="small">
+                                — {post.quoteImage.author}
+                              </span>
+                            </td>
+                            <td>{post.instagramAccountDisplayName}</td>
+                            <td>{new Date(post.scheduledAt).toLocaleString()}</td>
+                            <td>
+                              <span className={`scheduleStatus ${status}`}>
+                                {status[0].toUpperCase() + status.slice(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="small">No quotes match this filter.</p>
+              )}
+            </div>
+          )}
         </main>
       </div>
-
-      <section className="studioSection" style={{ marginTop: 24 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: 16,
-          }}
-        >
-          <div>
-            <p className="eyebrow">QUEUE</p>
-            <h2>Scheduled posts</h2>
-          </div>
-
-          <button
-            type="button"
-            className="textButton"
-            onClick={refresh}
-            disabled={busy}
-          >
-            Refresh
-          </button>
-        </div>
-
-        {scheduledPosts.length ? (
-          <table className="scheduleTable">
-            <thead>
-              <tr>
-                <th>Quote</th>
-                <th>Account</th>
-                <th>Scheduled</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scheduledPosts.map((post) => (
-                <tr key={post.id}>
-                  <td>{post.quoteImage.quote.slice(0, 70)}...</td>
-                  <td>{post.instagramAccountDisplayName}</td>
-                  <td>{new Date(post.scheduledAt).toLocaleString()}</td>
-                  <td>{post.posted ? 'Posted' : 'Pending'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <p className="small">No scheduled posts yet.</p>
-        )}
-      </section>
 
       {scheduleModalOpen && selectedQuote && (
         <div

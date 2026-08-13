@@ -671,6 +671,92 @@ textarea {
   justify-content: center;
 }
 
+.scheduleQueueHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.scheduleQueueHeader .textButton {
+  margin: 0;
+}
+
+.scheduleFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+}
+
+.scheduleFilters button {
+  padding: 8px 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.scheduleFilters button.isActive {
+  color: var(--accent-ink);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  font-weight: 700;
+}
+
+.scheduleTableWrap {
+  overflow-x: auto;
+}
+
+.scheduleTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.scheduleTable th,
+.scheduleTable td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+.scheduleTable th {
+  color: var(--muted);
+  font: 12px 'DM Mono';
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.scheduleTable td .small {
+  display: block;
+  margin-top: 4px;
+}
+
+.scheduleStatus {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.scheduleStatus.scheduled {
+  color: var(--accent-bright);
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.scheduleStatus.posted {
+  color: var(--success);
+  background: rgba(125, 216, 138, 0.12);
+}
+
+.scheduleStatus.failed {
+  color: var(--error);
+  background: rgba(255, 128, 128, 0.12);
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 750px) {
   header {
