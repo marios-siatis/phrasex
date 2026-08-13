@@ -102,6 +102,7 @@ function App() {
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [selectedQuoteCategory, setSelectedQuoteCategory] = useState('');
 
   useEffect(() => {
     request('/categories').then(setCategories);
@@ -154,6 +155,10 @@ function App() {
     setUser(null);
     setProfileMenuOpen(false);
   };
+
+  const visibleQuotes = selectedQuoteCategory
+    ? quotes.filter((quote) => quote.category === selectedQuoteCategory)
+    : quotes;
 
   if (!token) {
     return (
@@ -311,29 +316,59 @@ function App() {
                 ))}
               </div>
             ) : (
-              <div className="quoteGrid">
-                {quotes.map((q) => (
+              <>
+                <div className="quoteTagMenu" aria-label="Filter quotes by category">
                   <button
                     type="button"
-                    className="quotePin"
-                    key={q.id}
-                    onClick={() => setQuotePreview(q)}
-                    aria-label={`Preview quote: ${q.quote}`}
+                    className={!selectedQuoteCategory ? 'isActive' : ''}
+                    onClick={() => setSelectedQuoteCategory('')}
+                    aria-pressed={!selectedQuoteCategory}
                   >
-                    <img
-                      src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
-                      alt={q.quote}
-                    />
-                    <span className="quotePinDetails">
-                      <strong>“{q.quote}”</strong>
-                      <span>— {q.author}</span>
-                    </span>
+                    All quotes
                   </button>
-                ))}
-                {!quotes.length && (
-                  <p className="empty">No published quotes yet. Search Pexels above to begin exploring.</p>
-                )}
-              </div>
+                  {categories.map((category) => (
+                    <button
+                      type="button"
+                      key={category.id}
+                      className={
+                        selectedQuoteCategory === category.name ? 'isActive' : ''
+                      }
+                      onClick={() => setSelectedQuoteCategory(category.name)}
+                      aria-pressed={selectedQuoteCategory === category.name}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="quoteGrid">
+                  {visibleQuotes.map((q) => (
+                    <button
+                      type="button"
+                      className="quotePin"
+                      key={q.id}
+                      onClick={() => setQuotePreview(q)}
+                      aria-label={`Preview quote: ${q.quote}`}
+                    >
+                      <img
+                        src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
+                        alt={q.quote}
+                      />
+                      <span className="quotePinDetails">
+                        <strong>“{q.quote}”</strong>
+                        <span>— {q.author}</span>
+                      </span>
+                    </button>
+                  ))}
+                  {!visibleQuotes.length && (
+                    <p className="empty">
+                      {quotes.length
+                        ? 'No quotes are available in this category.'
+                        : 'No published quotes yet. Search Pexels above to begin exploring.'}
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </section>
         </>

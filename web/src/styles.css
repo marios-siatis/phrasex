@@ -276,6 +276,35 @@ figure {
   column-gap: 14px;
 }
 
+.quoteTagMenu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 0 0 22px;
+}
+
+.quoteTagMenu button {
+  padding: 8px 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.quoteTagMenu button:hover,
+.quoteTagMenu button:focus-visible {
+  border-color: var(--accent-bright);
+  outline: none;
+}
+
+.quoteTagMenu button.isActive {
+  color: var(--accent-ink);
+  background: var(--accent-bright);
+  border-color: var(--accent-bright);
+  font-weight: 700;
+}
+
 .quotePin {
   display: block;
   width: 100%;
