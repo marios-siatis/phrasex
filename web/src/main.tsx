@@ -859,7 +859,7 @@ function SchedulePage({ token }: { token: string }) {
   });
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<'accounts' | 'quotes' | 'scheduled'>('accounts');
+  const [tab, setTab] = useState<'accounts' | 'quotes' | 'scheduled'>('quotes');
   const [scheduleStatusFilter, setScheduleStatusFilter] = useState<
     'all' | 'failed' | 'scheduled' | 'posted'
   >('all');
@@ -1172,27 +1172,6 @@ function SchedulePage({ token }: { token: string }) {
 
           <button
             type="button"
-            onClick={() => setTab('accounts')}
-            className={tab === 'accounts' ? 'gold' : 'textButton'}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              marginBottom: 8,
-              padding: '12px 14px',
-              borderRadius: 10,
-            }}
-          >
-            <strong>Social Connected Accounts</strong>
-            <span
-              className="small"
-              style={{ display: 'block', marginTop: 4 }}
-            >
-              {accounts.length} connected
-            </span>
-          </button>
-
-          <button
-            type="button"
             onClick={() => setTab('quotes')}
             className={tab === 'quotes' ? 'gold' : 'textButton'}
             style={{
@@ -1229,6 +1208,27 @@ function SchedulePage({ token }: { token: string }) {
               style={{ display: 'block', marginTop: 4 }}
             >
               {scheduledPosts.length} total
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTab('accounts')}
+            className={tab === 'accounts' ? 'gold' : 'textButton'}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              marginTop: 8,
+              padding: '12px 14px',
+              borderRadius: 10,
+            }}
+          >
+            <strong>Social Connected Accounts</strong>
+            <span
+              className="small"
+              style={{ display: 'block', marginTop: 4 }}
+            >
+              {accounts.length} connected
             </span>
           </button>
         </aside>
