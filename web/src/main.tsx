@@ -861,35 +861,6 @@ function SchedulePage({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'accounts' | 'quotes'>('accounts');
 
-  const load = async () => {
-    const [quoteResponse, accountResponse, postsResponse] = await Promise.all([
-      request('/admin/quoteimages', token),
-      request('/admin/instagramaccounts', token),
-      request('/admin/scheduledposts', token),
-    ]);
-
-    setQuoteImages(quoteResponse);
-    setAccounts(accountResponse);
-    setScheduledPosts(postsResponse);
-
-    if (!scheduledAt && quoteResponse.length > 0) {
-      setSelectedQuoteId(quoteResponse[0].id);
-    }
-
-    if (!selectedAccountId && accountResponse.length > 0) {
-      setSelectedAccountId(accountResponse[0].id);
-    }
-
-    if (!scheduledAt) {
-      setScheduledAt(getNextAvailableTime());
-    }
-  };
-
-  useEffect(() => {
-    if (!token) return;
-    load().catch((err) => setNotice((err as Error).message));
-  }, [token]);
-
   const getNextAvailableTime = () => {
     const now = new Date();
     now.setMinutes(now.getMinutes() + (30 - (now.getMinutes() % 30)));
@@ -916,9 +887,40 @@ function SchedulePage({ token }: { token: string }) {
     return options;
   };
 
+  const load = async () => {
+    const [quoteResponse, accountResponse, postsResponse] = await Promise.all([
+      request('/admin/quoteimages', token),
+      request('/admin/instagramaccounts', token),
+      request('/admin/scheduledposts', token),
+    ]);
+
+    setQuoteImages(Array.isArray(quoteResponse) ? quoteResponse : []);
+    setAccounts(Array.isArray(accountResponse) ? accountResponse : []);
+    setScheduledPosts(Array.isArray(postsResponse) ? postsResponse : []);
+
+    if (!selectedQuoteId && quoteResponse?.length > 0) {
+      setSelectedQuoteId(quoteResponse[0].id);
+    }
+
+    if (!selectedAccountId && accountResponse?.length > 0) {
+      setSelectedAccountId(accountResponse[0].id);
+    }
+
+    if (!scheduledAt) {
+      setScheduledAt(getNextAvailableTime());
+    }
+  };
+
+  useEffect(() => {
+    if (!token) return;
+
+    load().catch((err) => setNotice((err as Error).message));
+  }, [token]);
+
   const refresh = async () => {
     setBusy(true);
     setNotice('');
+
     try {
       await load();
       setNotice('Schedule data refreshed.');
@@ -930,7 +932,11 @@ function SchedulePage({ token }: { token: string }) {
   };
 
   const saveAccount = async () => {
-    if (!accountForm.instagramUserId.trim() || !accountForm.displayName.trim() || !accountForm.accessToken.trim()) {
+    if (
+      !accountForm.instagramUserId.trim() ||
+      !accountForm.displayName.trim() ||
+      !accountForm.accessToken.trim()
+    ) {
       setNotice('Instagram user ID, display name, and access token are required.');
       return;
     }
@@ -951,7 +957,12 @@ function SchedulePage({ token }: { token: string }) {
 
       setAccounts((current) => [...current, created]);
       setSelectedAccountId(created.id);
-      setAccountForm({ instagramUserId: '', displayName: '', accessToken: '', refreshToken: '' });
+      setAccountForm({
+        instagramUserId: '',
+        displayName: '',
+        accessToken: '',
+        refreshToken: '',
+      });
       setNotice('Instagram account saved.');
     } catch (err) {
       setNotice((err as Error).message);
@@ -962,10 +973,12 @@ function SchedulePage({ token }: { token: string }) {
 
   const connectWithInstagram = async () => {
     try {
+      setNotice('');
       const res = await request('/admin/instagramauth/url', token);
+
       if (res?.url) {
         window.open(res.url, '_blank', 'noopener');
-        setNotice('Auth window opened. Complete the Instagram auth, then click Refresh.');
+        setNotice('Instagram login opened. Complete the connection, then refresh.');
       }
     } catch (err) {
       setNotice((err as Error).message);
@@ -974,10 +987,14 @@ function SchedulePage({ token }: { token: string }) {
 
   const disconnectAccount = async (id: number) => {
     if (!confirm('Disconnect this Instagram account?')) return;
+
     setBusy(true);
+
     try {
-      await request(`/admin/instagramaccounts/${id}`, token, { method: 'DELETE' });
-      await refresh();
+      await request(`/admin/instagramaccounts/${id}`, token, {
+        method: 'DELETE',
+      });
+      await load();
       setNotice('Account disconnected.');
     } catch (err) {
       setNotice((err as Error).message);
@@ -1005,7 +1022,7 @@ function SchedulePage({ token }: { token: string }) {
         }),
       });
 
-      await refresh();
+      await load();
       setNotice('Scheduled post created.');
     } catch (err) {
       setNotice((err as Error).message);
@@ -1016,142 +1033,463 @@ function SchedulePage({ token }: { token: string }) {
 
   return (
     <section className="page studio">
-      <p className="eyebrow">SCHEDULING</p>
-      <h1>Instagram scheduling</h1>
-      <p className="intro">Add Instagram accounts, choose a saved quote, and schedule it for posting.</p>
+      <p className="eyebrow">SOCIAL PUBLISHING</p>
+      <h1>Schedule</h1>
+      <p className="intro">
+        Connect your social accounts and choose the quotes you want to publish.
+      </p>
 
-      <div className="studioSection">
-        <div style={{ marginBottom: 12 }}>
-          <button type="button" className={tab === 'accounts' ? 'gold' : 'textButton'} onClick={() => setTab('accounts')}>Accounts</button>
-          <button type="button" className={tab === 'quotes' ? 'gold' : 'textButton'} onClick={() => setTab('quotes')} style={{ marginLeft: 8 }}>Quotes</button>
+      {notice && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 20,
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+          }}
+        >
+          {notice}
         </div>
+      )}
 
-        {tab === 'accounts' && (
-          <div>
-            <h2>Instagram accounts</h2>
-          <label>
-            Instagram user ID
-            <input
-              value={accountForm.instagramUserId}
-              onChange={(e) => setAccountForm({ ...accountForm, instagramUserId: e.target.value })}
-            />
-          </label>
-          <label>
-            Display name
-            <input
-              value={accountForm.displayName}
-              onChange={(e) => setAccountForm({ ...accountForm, displayName: e.target.value })}
-            />
-          </label>
-          <label>
-            Access token
-            <input
-              value={accountForm.accessToken}
-              onChange={(e) => setAccountForm({ ...accountForm, accessToken: e.target.value })}
-            />
-          </label>
-          <label>
-            Refresh token
-            <input
-              value={accountForm.refreshToken}
-              onChange={(e) => setAccountForm({ ...accountForm, refreshToken: e.target.value })}
-            />
-          </label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button type="button" className="gold" onClick={saveAccount} disabled={busy}>
-              {busy ? 'Saving…' : 'Save (manual)'}
-            </button>
-            <button type="button" className="outline" onClick={connectWithInstagram} disabled={busy}>
-              Connect via Instagram
-            </button>
-            <button type="button" className="textButton" onClick={refresh} disabled={busy}>
-              Refresh
-            </button>
-          </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '240px minmax(0, 1fr)',
+          gap: 24,
+          alignItems: 'start',
+        }}
+      >
+        {/* Clear scheduling menu */}
+        <aside
+          className="studioSection"
+          style={{
+            padding: 10,
+            position: 'sticky',
+            top: 20,
+          }}
+        >
+          <p
+            className="eyebrow"
+            style={{
+              padding: '8px 12px',
+              marginBottom: 8,
+            }}
+          >
+            PUBLISHING
+          </p>
 
-          <div className="listSection">
-            <h3>Connected accounts</h3>
-            {accounts.length ? (
-              <ul className="simpleList">
-                {accounts.map((account) => (
-                  <li key={account.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong>{account.displayName}</strong>
-                      <div style={{ fontSize: 13 }}>{account.instagramUserId}</div>
-                    </div>
-                    <div>
-                      <button className="textButton" onClick={() => setSelectedAccountId(account.id)}>Use</button>
-                      <button className="textButton" onClick={() => disconnectAccount(account.id)} style={{ marginLeft: 8 }}>Disconnect</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="small">No Instagram accounts connected yet.</p>
-            )}
-          </div>
-          </div>
-        )}
-
-        {tab === 'quotes' && (
-          <div>
-            <h2>Schedule a quote</h2>
-
-          <label>
-            Quote image
-            <select
-              value={selectedQuoteId}
-              onChange={(e) => setSelectedQuoteId(e.target.value)}
+          <button
+            type="button"
+            onClick={() => setTab('accounts')}
+            className={tab === 'accounts' ? 'gold' : 'textButton'}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              marginBottom: 8,
+              padding: '12px 14px',
+              borderRadius: 10,
+            }}
+          >
+            <strong>Social Connected Accounts</strong>
+            <span
+              className="small"
+              style={{ display: 'block', marginTop: 4 }}
             >
-              <option value="">Choose a saved quote image</option>
-              {quoteImages.map((quote) => (
-                <option key={quote.id} value={quote.id}>
-                  {quote.quote.slice(0, 80)} — {quote.author}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Instagram account
-            <select
-              value={selectedAccountId ?? ''}
-              onChange={(e) => setSelectedAccountId(Number(e.target.value))}
-            >
-              <option value="">Choose an Instagram account</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Scheduled time
-            <select
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-            >
-              {getScheduleOptions().map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button type="button" className="gold" onClick={saveSchedule} disabled={busy}>
-            {busy ? 'Scheduling…' : 'Schedule post'}
+              {accounts.length} connected
+            </span>
           </button>
 
-          {notice && <p className="small">{notice}</p>}
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={() => setTab('quotes')}
+            className={tab === 'quotes' ? 'gold' : 'textButton'}
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              padding: '12px 14px',
+              borderRadius: 10,
+            }}
+          >
+            <strong>Quotes</strong>
+            <span
+              className="small"
+              style={{ display: 'block', marginTop: 4 }}
+            >
+              {quoteImages.length} available
+            </span>
+          </button>
+        </aside>
+
+        {/* Main content */}
+        <main className="studioSection">
+          {tab === 'accounts' && (
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  gap: 16,
+                  marginBottom: 24,
+                }}
+              >
+                <div>
+                  <p className="eyebrow">SOCIAL</p>
+                  <h2>Connected Accounts</h2>
+                  <p className="small">
+                    Instagram accounts connected to PhraseX for publishing.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="gold"
+                  onClick={connectWithInstagram}
+                  disabled={busy}
+                >
+                  Connect Instagram
+                </button>
+              </div>
+
+              {accounts.length === 0 ? (
+                <div
+                  style={{
+                    padding: 24,
+                    border: '1px dashed rgba(0, 0, 0, 0.15)',
+                    borderRadius: 12,
+                  }}
+                >
+                  <strong>No social accounts connected</strong>
+                  <p className="small">
+                    Connect Instagram to start scheduling your PhraseX quotes.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {accounts.map((account) => (
+                    <div
+                      key={account.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 16,
+                        padding: 16,
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
+                        borderRadius: 12,
+                      }}
+                    >
+                      <div>
+                        <strong>{account.displayName}</strong>
+                        <div className="small">
+                          Instagram ID: {account.instagramUserId}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="textButton"
+                          onClick={() => setSelectedAccountId(account.id)}
+                        >
+                          Use
+                        </button>
+
+                        <button
+                          type="button"
+                          className="textButton"
+                          onClick={() => disconnectAccount(account.id)}
+                          disabled={busy}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div
+                style={{
+                  marginTop: 28,
+                  paddingTop: 20,
+                  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+                }}
+              >
+                <h3>Manual account</h3>
+                <p className="small">
+                  Manual token entry is available for development only.
+                </p>
+
+                <label>
+                  Instagram user ID
+                  <input
+                    value={accountForm.instagramUserId}
+                    onChange={(e) =>
+                      setAccountForm({
+                        ...accountForm,
+                        instagramUserId: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Display name
+                  <input
+                    value={accountForm.displayName}
+                    onChange={(e) =>
+                      setAccountForm({
+                        ...accountForm,
+                        displayName: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Access token
+                  <input
+                    value={accountForm.accessToken}
+                    onChange={(e) =>
+                      setAccountForm({
+                        ...accountForm,
+                        accessToken: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Refresh token
+                  <input
+                    value={accountForm.refreshToken}
+                    onChange={(e) =>
+                      setAccountForm({
+                        ...accountForm,
+                        refreshToken: e.target.value,
+                      })
+                    }
+                  />
+                </label>
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="gold"
+                    onClick={saveAccount}
+                    disabled={busy}
+                  >
+                    {busy ? 'Saving…' : 'Save account'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="textButton"
+                    onClick={refresh}
+                    disabled={busy}
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === 'quotes' && (
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <p className="eyebrow">CONTENT</p>
+                <h2>Quotes</h2>
+                <p className="small">
+                  Choose a saved quote image and schedule it for a connected
+                  social account.
+                </p>
+              </div>
+
+              {quoteImages.length === 0 ? (
+                <div
+                  style={{
+                    padding: 24,
+                    border: '1px dashed rgba(0, 0, 0, 0.15)',
+                    borderRadius: 12,
+                  }}
+                >
+                  <strong>No quote images available</strong>
+                  <p className="small">
+                    Create an image quote first, then return here to schedule
+                    it.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fill, minmax(220px, 1fr))',
+                    gap: 16,
+                  }}
+                >
+                  {quoteImages.map((quote) => (
+                    <article
+                      key={quote.id}
+                      style={{
+                        overflow: 'hidden',
+                        border: '1px solid rgba(0, 0, 0, 0.08)',
+                        borderRadius: 12,
+                      }}
+                    >
+                      {quote.finalImageUrl && (
+                        <img
+                          src={quote.finalImageUrl}
+                          alt={quote.quote}
+                          style={{
+                            display: 'block',
+                            width: '100%',
+                            aspectRatio: '1 / 1',
+                            objectFit: 'cover',
+                          }}
+                        />
+                      )}
+
+                      <div style={{ padding: 14 }}>
+                        <strong
+                          style={{
+                            display: 'block',
+                            marginBottom: 8,
+                          }}
+                        >
+                          {quote.quote}
+                        </strong>
+
+                        <div className="small">— {quote.author}</div>
+
+                        {quote.category && (
+                          <div className="small">{quote.category}</div>
+                        )}
+
+                        <button
+                          type="button"
+                          className="gold"
+                          style={{
+                            width: '100%',
+                            marginTop: 12,
+                          }}
+                          onClick={() => {
+                            setSelectedQuoteId(quote.id);
+                            setTab('quotes');
+                          }}
+                          disabled={accounts.length === 0}
+                        >
+                          {selectedQuoteId === quote.id
+                            ? 'Selected'
+                            : 'Select quote'}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              <div
+                style={{
+                  marginTop: 28,
+                  paddingTop: 20,
+                  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+                }}
+              >
+                <h3>Schedule selected quote</h3>
+
+                {accounts.length === 0 ? (
+                  <p className="small">
+                    Connect an Instagram account before scheduling a quote.
+                  </p>
+                ) : (
+                  <>
+                    <label>
+                      Instagram account
+                      <select
+                        value={selectedAccountId ?? ''}
+                        onChange={(e) =>
+                          setSelectedAccountId(Number(e.target.value))
+                        }
+                      >
+                        <option value="">Choose an Instagram account</option>
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Scheduled time
+                      <select
+                        value={scheduledAt}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                      >
+                        {getScheduleOptions().map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <button
+                      type="button"
+                      className="gold"
+                      onClick={saveSchedule}
+                      disabled={
+                        busy ||
+                        !selectedQuoteId ||
+                        !selectedAccountId ||
+                        !scheduledAt
+                      }
+                    >
+                      {busy ? 'Scheduling…' : 'Schedule post'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
       </div>
 
-      <section className="studioSection">
-        <h2>Scheduled posts</h2>
+      <section className="studioSection" style={{ marginTop: 24 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+          }}
+        >
+          <div>
+            <p className="eyebrow">QUEUE</p>
+            <h2>Scheduled posts</h2>
+          </div>
+
+          <button
+            type="button"
+            className="textButton"
+            onClick={refresh}
+            disabled={busy}
+          >
+            Refresh
+          </button>
+        </div>
+
         {scheduledPosts.length ? (
           <table className="scheduleTable">
             <thead>
@@ -1180,7 +1518,6 @@ function SchedulePage({ token }: { token: string }) {
     </section>
   );
 }
-
 function BrandingPage({
   token,
   logos,
