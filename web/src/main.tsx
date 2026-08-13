@@ -860,13 +860,10 @@ function SchedulePage({ token }: { token: string }) {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'accounts' | 'quotes'>('accounts');
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   const getNextAvailableTime = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + (30 - (now.getMinutes() % 30)));
-    now.setSeconds(0);
-    now.setMilliseconds(0);
-    return now.toISOString();
+    return new Date().toISOString();
   };
 
   const getSuggestedScheduleTime = (
@@ -1055,6 +1052,7 @@ function SchedulePage({ token }: { token: string }) {
       });
 
       await load();
+      setScheduleModalOpen(false);
       setNotice('Scheduled post created.');
     } catch (err) {
       setNotice((err as Error).message);
@@ -1066,6 +1064,7 @@ function SchedulePage({ token }: { token: string }) {
   const selectQuote = (quoteId: string) => {
     setSelectedQuoteId(quoteId);
     setScheduledAt(getSuggestedScheduleTime());
+    setScheduleModalOpen(true);
   };
 
   const selectAccount = (accountId: number) => {
@@ -1081,6 +1080,7 @@ function SchedulePage({ token }: { token: string }) {
   const selectedAccount = accounts.find(
     (account) => account.id === selectedAccountId
   );
+  const selectedQuote = quoteImages.find((quote) => quote.id === selectedQuoteId);
 
   return (
     <section className="page studio">
@@ -1418,73 +1418,6 @@ function SchedulePage({ token }: { token: string }) {
                 </div>
               )}
 
-              <div
-                style={{
-                  marginTop: 28,
-                  paddingTop: 20,
-                  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
-                }}
-              >
-                <h3>Schedule selected quote</h3>
-
-                {accounts.length === 0 ? (
-                  <p className="small">
-                    Connect an Instagram account before scheduling a quote.
-                  </p>
-                ) : (
-                  <>
-                    <label>
-                      Instagram account
-                      <select
-                        value={selectedAccountId ?? ''}
-                        onChange={(e) => selectAccount(Number(e.target.value))}
-                      >
-                        <option value="">Choose an Instagram account</option>
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.displayName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Scheduled time
-                      <select
-                        value={scheduledAt}
-                        onChange={(e) => setScheduledAt(e.target.value)}
-                      >
-                        {getScheduleOptions(scheduledAt).map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <p className="scheduleSuggestion">
-                      Suggested time: <strong>{new Date(scheduledAt).toLocaleString()}</strong>
-                      {selectedAccount
-                        ? ` — three hours after ${selectedAccount.displayName}'s latest scheduled post.`
-                        : ' — three hours after the latest scheduled post.'}
-                    </p>
-
-                    <button
-                      type="button"
-                      className="gold"
-                      onClick={saveSchedule}
-                      disabled={
-                        busy ||
-                        !selectedQuoteId ||
-                        !selectedAccountId ||
-                        !scheduledAt
-                      }
-                    >
-                      {busy ? 'Scheduling…' : 'Schedule post'}
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
           )}
         </main>
@@ -1539,6 +1472,91 @@ function SchedulePage({ token }: { token: string }) {
           <p className="small">No scheduled posts yet.</p>
         )}
       </section>
+
+      {scheduleModalOpen && selectedQuote && (
+        <div
+          className="modal"
+          role="presentation"
+          onMouseDown={() => !busy && setScheduleModalOpen(false)}
+        >
+          <section
+            className="dialog scheduleDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-dialog-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="scheduleDialogClose"
+              onClick={() => setScheduleModalOpen(false)}
+              aria-label="Close scheduling dialog"
+              disabled={busy}
+            >
+              <X size={18} />
+            </button>
+
+            <p className="eyebrow">SCHEDULE QUOTE</p>
+            <h2 id="schedule-dialog-title">Schedule this post</h2>
+            <p className="small scheduleDialogQuote">
+              “{selectedQuote.quote}” — {selectedQuote.author}
+            </p>
+
+            {accounts.length === 0 ? (
+              <p className="small">
+                Connect an Instagram account before scheduling this quote.
+              </p>
+            ) : (
+              <>
+                <label>
+                  Instagram account
+                  <select
+                    value={selectedAccountId ?? ''}
+                    onChange={(e) => selectAccount(Number(e.target.value))}
+                  >
+                    <option value="">Choose an Instagram account</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Scheduled time
+                  <select
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                  >
+                    {getScheduleOptions(scheduledAt).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <p className="scheduleSuggestion">
+                  Proposed time: <strong>{new Date(scheduledAt).toLocaleString()}</strong>
+                  {selectedAccount
+                    ? ` — three hours after ${selectedAccount.displayName}'s latest scheduled post.`
+                    : ' — three hours after the latest scheduled post.'}
+                </p>
+
+                <button
+                  type="button"
+                  className="gold"
+                  onClick={saveSchedule}
+                  disabled={busy || !selectedAccountId || !scheduledAt}
+                >
+                  {busy ? 'Scheduling…' : 'Schedule post'}
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </section>
   );
 }

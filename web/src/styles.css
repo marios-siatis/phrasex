@@ -637,6 +637,40 @@ textarea {
   font-size: 13px;
 }
 
+.scheduleDialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+}
+
+.scheduleDialogClose {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border-radius: 50%;
+}
+
+.scheduleDialogClose:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.scheduleDialogQuote {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.scheduleDialog .gold {
+  width: 100%;
+  justify-content: center;
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 750px) {
   header {
