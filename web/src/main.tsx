@@ -102,7 +102,7 @@ function App() {
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [selectedQuoteCategory, setSelectedQuoteCategory] = useState('');
+  const [selectedQuoteCategories, setSelectedQuoteCategories] = useState<string[]>([]);
 
   useEffect(() => {
     request('/categories').then(setCategories);
@@ -127,6 +127,16 @@ function App() {
         setToken('');
       });
   }, [token]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setSelectedQuoteCategories(
+      categories
+        .filter((category) => user.categoryIds.includes(category.id))
+        .map((category) => category.name)
+    );
+  }, [user, categories]);
 
   const search = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -156,8 +166,10 @@ function App() {
     setProfileMenuOpen(false);
   };
 
-  const visibleQuotes = selectedQuoteCategory
-    ? quotes.filter((quote) => quote.category === selectedQuoteCategory)
+  const visibleQuotes = selectedQuoteCategories.length
+    ? quotes.filter((quote) =>
+        quote.category ? selectedQuoteCategories.includes(quote.category) : false
+      )
     : quotes;
 
   if (!token) {
@@ -303,7 +315,9 @@ function App() {
                 <p className="eyebrow">CURATED FOR YOU</p>
                 <h2>{photos.length ? `Results for “${query}”` : 'Fresh from PhraseX'}</h2>
               </div>
-              <span>{photos.length ? `${photos.length} images` : 'Quote collection'}</span>
+              <span>
+                {photos.length ? `${photos.length} images` : `${visibleQuotes.length} quotes`}
+              </span>
             </div>
 
             {photos.length ? (
@@ -320,9 +334,9 @@ function App() {
                 <div className="quoteTagMenu" aria-label="Filter quotes by category">
                   <button
                     type="button"
-                    className={!selectedQuoteCategory ? 'isActive' : ''}
-                    onClick={() => setSelectedQuoteCategory('')}
-                    aria-pressed={!selectedQuoteCategory}
+                    className={!selectedQuoteCategories.length ? 'isActive' : ''}
+                    onClick={() => setSelectedQuoteCategories([])}
+                    aria-pressed={!selectedQuoteCategories.length}
                   >
                     All quotes
                   </button>
@@ -331,10 +345,18 @@ function App() {
                       type="button"
                       key={category.id}
                       className={
-                        selectedQuoteCategory === category.name ? 'isActive' : ''
+                        selectedQuoteCategories.includes(category.name)
+                          ? 'isActive'
+                          : ''
                       }
-                      onClick={() => setSelectedQuoteCategory(category.name)}
-                      aria-pressed={selectedQuoteCategory === category.name}
+                      onClick={() =>
+                        setSelectedQuoteCategories((selected) =>
+                          selected.includes(category.name)
+                            ? selected.filter((name) => name !== category.name)
+                            : [...selected, category.name]
+                        )
+                      }
+                      aria-pressed={selectedQuoteCategories.includes(category.name)}
                     >
                       {category.name}
                     </button>
@@ -362,8 +384,8 @@ function App() {
                   ))}
                   {!visibleQuotes.length && (
                     <p className="empty">
-                      {quotes.length
-                        ? 'No quotes are available in this category.'
+                      {selectedQuoteCategories.length
+                        ? 'No quotes are available in the selected categories.'
                         : 'No published quotes yet. Search Pexels above to begin exploring.'}
                     </p>
                   )}
