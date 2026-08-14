@@ -10,6 +10,10 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+# ---------------------------------------------------------
+# VPC
+# ---------------------------------------------------------
+
 resource "aws_vpc" "this" {
   cidr_block           = "10.40.0.0/16"
   enable_dns_hostnames = true
@@ -45,16 +49,26 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# ---------------------------------------------------------
+# Security Groups
+# ---------------------------------------------------------
+
 resource "aws_security_group" "alb" {
   name   = "${local.name}-alb"
   vpc_id = aws_vpc.this.id
 
   ingress {
-    from_port = 80
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
-    from_port = 0
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -63,17 +77,31 @@ resource "aws_security_group" "api" {
   vpc_id = aws_vpc.this.id
 
   ingress {
-    from_port = 8080
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
   }
 
   egress {
-    from_port = 0
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+# ---------------------------------------------------------
+# ECR
+# ---------------------------------------------------------
 
 resource "aws_ecr_repository" "api" {
   name = "${local.name}-api"
 }
+
+# ---------------------------------------------------------
+# S3
+# ---------------------------------------------------------
 
 resource "aws_s3_bucket" "web" {
   bucket_prefix = "${local.name}-web-"
@@ -101,6 +129,10 @@ resource "aws_s3_bucket_public_access_block" "images" {
   restrict_public_buckets = true
 }
 
+# ---------------------------------------------------------
+# CloudFront
+# ---------------------------------------------------------
+
 resource "aws_cloudfront_origin_access_control" "web" {
   name                              = "${local.name}-web"
   origin_access_control_origin_type = "s3"
@@ -127,6 +159,10 @@ resource "aws_cloudfront_distribution" "web" {
 
     forwarded_values {
       query_string = false
+
+      cookies {
+        forward = "none"
+      }
     }
   }
 
@@ -141,20 +177,33 @@ resource "aws_cloudfront_distribution" "web" {
   }
 }
 
+# ---------------------------------------------------------
+# CloudWatch
+# ---------------------------------------------------------
+
 resource "aws_cloudwatch_log_group" "api" {
   name = "/ecs/${local.name}-api"
 }
 
+# ---------------------------------------------------------
+# ECS
+# ---------------------------------------------------------
+
 resource "aws_ecs_cluster" "this" {
   name = local.name
 }
+
+# ---------------------------------------------------------
+# IAM
+# ---------------------------------------------------------
 
 data "aws_iam_policy_document" "assume" {
   statement {
     actions = ["sts:AssumeRole"]
 
     principals {
-      type = "Service"
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
     }
   }
 }
@@ -174,13 +223,20 @@ resource "aws_iam_role" "task" {
   assume_role_policy = data.aws_iam_policy_document.assume.json
 }
 
+# ---------------------------------------------------------
+# Application Load Balancer
+# ---------------------------------------------------------
+
 resource "aws_lb" "api" {
   name               = "${local.name}-api"
   internal           = false
   load_balancer_type = "application"
 
-  security_groups = [aws_security_group.alb.id]
-  subnets         = aws_subnet.public[*].id
+  security_groups = [
+    aws_security_group.alb.id
+  ]
+
+  subnets = aws_subnet.public[*].id
 }
 
 resource "aws_lb_target_group" "api" {
@@ -205,6 +261,10 @@ resource "aws_lb_listener" "api" {
     target_group_arn = aws_lb_target_group.api.arn
   }
 }
+
+# ---------------------------------------------------------
+# ECS Task Definition
+# ---------------------------------------------------------
 
 resource "aws_ecs_task_definition" "api" {
   family                   = "${local.name}-api"
@@ -260,6 +320,10 @@ resource "aws_ecs_task_definition" "api" {
     }
   ])
 }
+
+# ---------------------------------------------------------
+# ECS Service
+# ---------------------------------------------------------
 
 resource "aws_ecs_service" "api" {
   name            = "api"
