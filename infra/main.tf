@@ -286,6 +286,10 @@ resource "aws_cloudfront_distribution" "web" {
   enabled             = true
   default_root_object = "index.html"
 
+  aliases = [
+    "www.phrasex.com"
+  ]
+
   origin {
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
     origin_id                = "web"
@@ -315,7 +319,9 @@ resource "aws_cloudfront_distribution" "web" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate.www.arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 
@@ -488,7 +494,7 @@ resource "aws_ecs_task_definition" "api" {
         },
         {
           name  = "Cors__Origins__0"
-          value = "https://${aws_cloudfront_distribution.web.domain_name}"
+          value = "https://www.phrasex.com"
         }
       ]
 
