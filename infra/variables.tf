@@ -20,3 +20,22 @@ variable "lambda_instagram_graph_version" {
   description = "Instagram Graph API version used by the checker"
   default     = "16.0"
 }
+
+variable "lambda_database_url" {
+  type      = string
+  sensitive = true
+}
+
+variable "lambda_threshold_hours" {
+  type    = number
+  default = 0
+}
+
+variable "lambda_instagram_graph_version" {
+  type    = string
+  default = "24.0"
+}
+
+variable "lambda_image_base_url" {
+  type = string
+}
