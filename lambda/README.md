@@ -52,3 +52,4 @@ Split into separate UI files
 GIve me the list of similar quotes and force create
 Fix create view to look nicer
 HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to 
+create collections of my quotes 
