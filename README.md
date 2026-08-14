@@ -39,8 +39,3 @@ Build and push the API image to the Terraform-created ECR repository. Build the 
 - `Jwt:Key` — a long random signing key
 - `Pexels:ApiKey` — Pexels API key; only used server-side
 - `Database:ConnectionString` — supplied automatically by the ECS task definition
-
-
-remove from scheduling list button
-Create the actual posting Lambda
-

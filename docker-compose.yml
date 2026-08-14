@@ -16,5 +16,16 @@ services:
       timeout: 5s
       retries: 12
 
+  scheduler:
+    build: ./lambda
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/phrasex
+      THRESHOLD_HOURS: '1'
+      POLL_INTERVAL_SECONDS: '300'
+      RUN_ONCE: 'false'
+      INSTAGRAM_GRAPH_VERSION: '16.0'
+    depends_on:
+      - db
+
 volumes:
   phrasex-postgres:
