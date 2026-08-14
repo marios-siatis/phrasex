@@ -146,6 +146,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     CREATE TABLE IF NOT EXISTS public.scheduledposts (
         id serial PRIMARY KEY,
         quoteimageid uuid NOT NULL,
+        instagrammediaid text,
         instagramaccountid integer NOT NULL,
         scheduledat timestamp without time zone NOT NULL,
         createdat timestamp without time zone NOT NULL DEFAULT now(),

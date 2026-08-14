@@ -46,3 +46,9 @@ The compose file starts Postgres with a minimal schema and seeds a sample schedu
 
 To run in AWS you'll need to build and push the Lambda container image to ECR and then apply Terraform. Terraform creates an ECR repo for the checker; build and push to the repo output `lambda_checker_ecr: <repo>` as `:latest`.
 
+TODO:
+
+Split into separate UI files 
+GIve me the list of similar quotes and force create
+Fix create view to look nicer
+HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to 
