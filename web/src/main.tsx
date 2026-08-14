@@ -1692,6 +1692,7 @@ function SchedulePage({ token }: { token: string }) {
                           </button>
                         </th>
                         <th>Status</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1738,6 +1739,36 @@ function SchedulePage({ token }: { token: string }) {
                                   Reschedule
                                 </button>
                               )}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                  type="button"
+                                  className="textButton"
+                                  onClick={() => rescheduleFailedQuote(post)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="textButton"
+                                  onClick={async () => {
+                                    if (!confirm('Remove this scheduled post?')) return;
+                                    setBusy(true);
+                                    try {
+                                      await request(`/admin/scheduledposts/${post.id}`, token, { method: 'DELETE' });
+                                      await load();
+                                      setNotice('Scheduled post removed.');
+                                    } catch (err) {
+                                      setNotice((err as Error).message);
+                                    } finally {
+                                      setBusy(false);
+                                    }
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );

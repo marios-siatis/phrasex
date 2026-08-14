@@ -1070,6 +1070,22 @@ public class PhraseXController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("admin/scheduledposts/{id:int}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteScheduledPost(int id)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var scheduledPost = await _db.ScheduledPosts.FindAsync(id);
+        if (scheduledPost is null) return NotFound(new { message = "Scheduled post not found." });
+
+        _db.ScheduledPosts.Remove(scheduledPost);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpGet("quotes")]
     public async Task<IActionResult> GetQuotes([FromQuery] string? q)
     {
