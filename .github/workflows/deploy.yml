@@ -24,8 +24,17 @@ jobs:
     environment: production
 
     steps:
+
+      # ---------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------
+
       - name: Check out source
         uses: actions/checkout@v4
+
+      # ---------------------------------------------------
+      # AWS
+      # ---------------------------------------------------
 
       - name: Configure AWS credentials using GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
@@ -33,17 +42,27 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # ---------------------------------------------------
+      # Terraform state bucket
+      # ---------------------------------------------------
+
       - name: Ensure Terraform state bucket exists
         run: |
           set -euo pipefail
 
-          if aws s3api head-bucket --bucket "${TF_STATE_BUCKET}" 2>/dev/null; then
+          if aws s3api head-bucket \
+            --bucket "${TF_STATE_BUCKET}" \
+            2>/dev/null
+          then
             echo "Terraform state bucket already exists."
           else
+            echo "Creating Terraform state bucket..."
+
             aws s3api create-bucket \
               --bucket "${TF_STATE_BUCKET}" \
               --region "${AWS_REGION}" \
-              --create-bucket-configuration LocationConstraint="${AWS_REGION}"
+              --create-bucket-configuration \
+                LocationConstraint="${AWS_REGION}"
 
             aws s3api put-bucket-versioning \
               --bucket "${TF_STATE_BUCKET}" \
@@ -60,42 +79,73 @@ jobs:
               BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
           fi
 
+      # ---------------------------------------------------
+      # Terraform
+      # ---------------------------------------------------
+
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8
 
-      - name: Bootstrap ECR repositories
-        working-directory: infra
-        env:
-          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
-          TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
-          TF_VAR_lambda_database_url: ${{ secrets.LAMBDA_DATABASE_URL }}
-          TF_VAR_lambda_instagram_graph_version: ${{ vars.INSTAGRAM_GRAPH_VERSION || '24.0' }}
-          TF_VAR_lambda_threshold_hours: ${{ vars.LAMBDA_THRESHOLD_HOURS || '0' }}
-        run: |
-          set -euo pipefail
+      # ---------------------------------------------------
+      # Terraform initialization
+      # ---------------------------------------------------
 
+      - name: Initialize Terraform
+        working-directory: infra
+        run: |
           terraform init -input=false \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="key=phrasex/production.tfstate" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="encrypt=true"
 
+      # ---------------------------------------------------
+      # Validate
+      # ---------------------------------------------------
+
+      - name: Validate Terraform
+        working-directory: infra
+        env:
+          TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
+        run: |
           terraform fmt -check -recursive
           terraform validate
 
+      # ---------------------------------------------------
+      # Bootstrap ECR
+      #
+      # We need the repositories before Docker can push
+      # the API and Lambda images.
+      # ---------------------------------------------------
+
+      - name: Bootstrap ECR repositories
+        working-directory: infra
+        env:
+          TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
+        run: |
           terraform apply \
             -auto-approve \
             -input=false \
             -target=aws_ecr_repository.api \
             -target=aws_ecr_repository.lambda_checker
 
+      # ---------------------------------------------------
+      # ECR Login
+      # ---------------------------------------------------
+
       - name: Log in to Amazon ECR
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push the API image
+      # ---------------------------------------------------
+      # API Docker image
+      # ---------------------------------------------------
+
+      - name: Build and push API image
         working-directory: api
         env:
           IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY || 'phrasex-prod-api' }}
@@ -111,6 +161,10 @@ jobs:
           docker push "$IMAGE_URI:$IMAGE_TAG"
           docker push "$IMAGE_URI:latest"
 
+      # ---------------------------------------------------
+      # Lambda Docker image
+      # ---------------------------------------------------
+
       - name: Build and push Lambda checker image
         working-directory: lambda
         env:
@@ -118,8 +172,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          docker build -t "$IMAGE_URI:latest" .
+          docker build \
+            -t "$IMAGE_URI:latest" \
+            .
+
           docker push "$IMAGE_URI:latest"
+
+      # ---------------------------------------------------
+      # Verify Lambda image
+      # ---------------------------------------------------
 
       - name: Verify Lambda image exists
         run: |
@@ -130,17 +191,39 @@ jobs:
             --image-ids imageTag=latest \
             --region "$AWS_REGION"
 
+      # ---------------------------------------------------
+      # FULL Terraform deployment
+      #
+      # This creates:
+      # - VPC
+      # - private subnets
+      # - NAT
+      # - RDS PostgreSQL
+      # - ECS
+      # - Lambda
+      # - EventBridge
+      # - ALB
+      # - S3
+      # - CloudFront
+      # ---------------------------------------------------
+
       - name: Apply complete infrastructure
         working-directory: infra
         env:
-          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
           TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
-          TF_VAR_lambda_database_url: ${{ secrets.LAMBDA_DATABASE_URL }}
-          TF_VAR_lambda_instagram_graph_version: ${{ vars.INSTAGRAM_GRAPH_VERSION || '24.0' }}
+          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
           TF_VAR_lambda_threshold_hours: ${{ vars.LAMBDA_THRESHOLD_HOURS || '0' }}
+          TF_VAR_lambda_instagram_graph_version: ${{ vars.INSTAGRAM_GRAPH_VERSION || '24.0' }}
         run: |
           set -euo pipefail
-          terraform apply -auto-approve -input=false
+
+          terraform apply \
+            -auto-approve \
+            -input=false
+
+      # ---------------------------------------------------
+      # ECS deployment
+      # ---------------------------------------------------
 
       - name: Deploy API task revision
         env:
@@ -154,12 +237,20 @@ jobs:
             --service "$SERVICE" \
             --force-new-deployment
 
+      # ---------------------------------------------------
+      # Node
+      # ---------------------------------------------------
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
+
+      # ---------------------------------------------------
+      # Frontend
+      # ---------------------------------------------------
 
       - name: Build and publish frontend
         working-directory: web
@@ -169,5 +260,10 @@ jobs:
           set -euo pipefail
 
           npm ci
+
           npm run build
-          aws s3 sync dist/ "s3://${{ secrets.FRONTEND_BUCKET }}" --delete
+
+          aws s3 sync \
+            dist/ \
+            "s3://${{ secrets.FRONTEND_BUCKET }}" \
+            --delete
