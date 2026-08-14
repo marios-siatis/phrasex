@@ -471,7 +471,7 @@ resource "aws_ecs_task_definition" "api" {
           value = "http://0.0.0.0:8080"
         },
         {
-          name  = "ConnectionStrings__DefaultConnection"
+          name  = "ConnectionStrings__PhraseX"
           value = "Host=${aws_db_instance.postgres.address};Port=5432;Database=phrasex;Username=phrasex_admin;Password=${random_password.database.result};SSL Mode=Require;Trust Server Certificate=true"
         },
         {
