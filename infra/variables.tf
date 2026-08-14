@@ -22,5 +22,6 @@ variable "lambda_instagram_graph_version" {
 }
 
 variable "lambda_image_base_url" {
-  type = string
+  type    = string
+  default = ""
 }
