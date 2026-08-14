@@ -1,27 +1,39 @@
-variable "project" { default = "phrasex" }
-variable "environment" { default = "prod" }
-variable "aws_region" { default = "eu-west-2" }
-variable "pexels_api_key" { sensitive = true }
-variable "jwt_key" { sensitive = true }
-variable "db_instance_class" { default = "db.t4g.micro" }
-variable "api_desired_count" { default = 1 }
+variable "project" {
+  type    = string
+  default = "phrasex"
+}
 
-variable "lambda_database_url" {
-  description = "Database URL used by the scheduler lambda (overrides default)."
-  default     = ""
+variable "environment" {
+  type    = string
+  default = "prod"
+}
+
+variable "aws_region" {
+  type    = string
+  default = "eu-west-2"
+}
+
+variable "jwt_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "pexels_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "api_desired_count" {
+  type    = number
+  default = 2
 }
 
 variable "lambda_threshold_hours" {
-  description = "How many hours ahead of now the checker should look for scheduled posts."
-  default     = 1
+  type    = number
+  default = 0
 }
 
 variable "lambda_instagram_graph_version" {
-  description = "Instagram Graph API version used by the checker"
-  default     = "16.0"
-}
-
-variable "lambda_image_base_url" {
   type    = string
-  default = ""
+  default = "24.0"
 }

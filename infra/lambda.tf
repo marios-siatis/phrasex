@@ -38,6 +38,35 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 }
 
 # ---------------------------------------------------------
+# Lambda VPC networking
+# ---------------------------------------------------------
+
+resource "aws_iam_role_policy" "lambda_vpc" {
+  name = "${local.name}-lambda-vpc"
+  role = aws_iam_role.lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses"
+        ]
+
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# ---------------------------------------------------------
 # Lambda Function
 # ---------------------------------------------------------
 
@@ -50,18 +79,34 @@ resource "aws_lambda_function" "checker" {
 
   role = aws_iam_role.lambda.arn
 
-  depends_on = [
-    aws_iam_role_policy_attachment.lambda_basic
-  ]
+  memory_size = 512
+  timeout     = 60
+
+  vpc_config {
+    subnet_ids = aws_subnet.private[*].id
+
+    security_group_ids = [
+      aws_security_group.lambda.id
+    ]
+  }
 
   environment {
     variables = {
-      DATABASE_URL            = var.lambda_database_url
-      THRESHOLD_HOURS         = tostring(var.lambda_threshold_hours)
+      DATABASE_URL = "postgresql://phrasex_admin:${random_password.database.result}@${aws_db_instance.postgres.address}:5432/phrasex?sslmode=require"
+
+      THRESHOLD_HOURS = tostring(
+        var.lambda_threshold_hours
+      )
+
       INSTAGRAM_GRAPH_VERSION = var.lambda_instagram_graph_version
-      IMAGE_BASE_URL          = var.lambda_image_base_url
     }
   }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.lambda_basic,
+    aws_iam_role_policy.lambda_vpc,
+    aws_db_instance.postgres
+  ]
 }
 
 # ---------------------------------------------------------
