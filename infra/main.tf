@@ -557,6 +557,3 @@ output "website_url" {
   value = "https://${aws_cloudfront_distribution.web.domain_name}"
 }
 
-output "api_url" {
-  value = "http://${aws_lb.api.dns_name}"
-}
