@@ -37,22 +37,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Checking Terraform state bucket: ${TF_STATE_BUCKET}"
-
           if aws s3api head-bucket --bucket "${TF_STATE_BUCKET}" 2>/dev/null; then
             echo "Terraform state bucket already exists."
           else
-            echo "Terraform state bucket does not exist. Creating it..."
+            aws s3api create-bucket \
+              --bucket "${TF_STATE_BUCKET}" \
+              --region "${AWS_REGION}" \
+              --create-bucket-configuration LocationConstraint="${AWS_REGION}"
 
-            aws s3api create-bucket               --bucket "${TF_STATE_BUCKET}"               --region "${AWS_REGION}"               --create-bucket-configuration LocationConstraint="${AWS_REGION}"
+            aws s3api put-bucket-versioning \
+              --bucket "${TF_STATE_BUCKET}" \
+              --versioning-configuration Status=Enabled
 
-            aws s3api put-bucket-versioning               --bucket "${TF_STATE_BUCKET}"               --versioning-configuration Status=Enabled
+            aws s3api put-bucket-encryption \
+              --bucket "${TF_STATE_BUCKET}" \
+              --server-side-encryption-configuration \
+              '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 
-            aws s3api put-bucket-encryption               --bucket "${TF_STATE_BUCKET}"               --server-side-encryption-configuration               '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
-
-            aws s3api put-public-access-block               --bucket "${TF_STATE_BUCKET}"               --public-access-block-configuration               BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
-
-            echo "Terraform state bucket created and secured."
+            aws s3api put-public-access-block \
+              --bucket "${TF_STATE_BUCKET}" \
+              --public-access-block-configuration \
+              BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
           fi
 
       - name: Set up Terraform
@@ -60,17 +65,31 @@ jobs:
         with:
           terraform_version: 1.9.8
 
-      - name: Apply infrastructure
+      - name: Bootstrap ECR repositories
         working-directory: infra
         env:
           TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
           TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+          TF_VAR_lambda_database_url: ${{ secrets.LAMBDA_DATABASE_URL }}
+          TF_VAR_lambda_instagram_graph_version: ${{ vars.INSTAGRAM_GRAPH_VERSION || '24.0' }}
+          TF_VAR_lambda_threshold_hours: ${{ vars.LAMBDA_THRESHOLD_HOURS || '0' }}
         run: |
-          terraform init -input=false             -backend-config="bucket=${TF_STATE_BUCKET}"             -backend-config="key=phrasex/production.tfstate"             -backend-config="region=${AWS_REGION}"             -backend-config="encrypt=true"
+          set -euo pipefail
+
+          terraform init -input=false \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=phrasex/production.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="encrypt=true"
 
           terraform fmt -check -recursive
           terraform validate
-          terraform apply -auto-approve -input=false
+
+          terraform apply \
+            -auto-approve \
+            -input=false \
+            -target=aws_ecr_repository.api \
+            -target=aws_ecr_repository.lambda_checker
 
       - name: Log in to Amazon ECR
         id: ecr
@@ -82,17 +101,58 @@ jobs:
           IMAGE_URI: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY || 'phrasex-prod-api' }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build             -t "$IMAGE_URI:$IMAGE_TAG"             -t "$IMAGE_URI:latest" .
+          set -euo pipefail
+
+          docker build \
+            -t "$IMAGE_URI:$IMAGE_TAG" \
+            -t "$IMAGE_URI:latest" \
+            .
 
           docker push "$IMAGE_URI:$IMAGE_TAG"
           docker push "$IMAGE_URI:latest"
+
+      - name: Build and push Lambda checker image
+        working-directory: lambda
+        env:
+          IMAGE_URI: ${{ steps.ecr.outputs.registry }}/phrasex-prod-lambda-checker
+        run: |
+          set -euo pipefail
+
+          docker build -t "$IMAGE_URI:latest" .
+          docker push "$IMAGE_URI:latest"
+
+      - name: Verify Lambda image exists
+        run: |
+          set -euo pipefail
+
+          aws ecr describe-images \
+            --repository-name phrasex-prod-lambda-checker \
+            --image-ids imageTag=latest \
+            --region "$AWS_REGION"
+
+      - name: Apply complete infrastructure
+        working-directory: infra
+        env:
+          TF_VAR_pexels_api_key: ${{ secrets.PEXELS_API_KEY }}
+          TF_VAR_jwt_key: ${{ secrets.JWT_KEY }}
+          TF_VAR_lambda_database_url: ${{ secrets.LAMBDA_DATABASE_URL }}
+          TF_VAR_lambda_instagram_graph_version: ${{ vars.INSTAGRAM_GRAPH_VERSION || '24.0' }}
+          TF_VAR_lambda_threshold_hours: ${{ vars.LAMBDA_THRESHOLD_HOURS || '0' }}
+        run: |
+          set -euo pipefail
+          terraform apply -auto-approve -input=false
 
       - name: Deploy API task revision
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER || 'phrasex-prod' }}
           SERVICE: api
         run: |
-          aws ecs update-service             --cluster "$CLUSTER"             --service "$SERVICE"             --force-new-deployment
+          set -euo pipefail
+
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -106,6 +166,8 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
+          set -euo pipefail
+
           npm ci
           npm run build
           aws s3 sync dist/ "s3://${{ secrets.FRONTEND_BUCKET }}" --delete
