@@ -7,6 +7,7 @@ const fs = require('fs');
 
 const caPath = path.join(__dirname, 'global-bundle.pem');
 
+const Hashtags = "#phrasex #imagequotes #quoteoftheday #quotestoliveby";
 const IS_LOCAL = process.env.IS_LOCAL === 'true';
 console.log(`IS_LOCAL=${IS_LOCAL}, caPath=${caPath}, exists=${fs.existsSync(caPath)}`);
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -156,8 +157,8 @@ async function checkAndPostOnce() {
     for (const row of res.rows) {
       try {
         const caption = row.author
-          ? `${row.quote} - ${row.author}`
-          : row.quote;
+          ? `${row.quote} - ${row.author} \n ${Hashtags}`
+          : row.quote + ` \n ${Hashtags}`;
 
         console.log(
           `Posting post id=${row.id} to IG user=${row.instagramuserid} image=${row.finalimageurl}`

@@ -238,12 +238,44 @@ public class PhraseXController : ControllerBase
                 q.Quote, q.Author, q.Category,
                 _quoteSimilarityThreshold));
 
-        if (duplicateImageQuoteExists || duplicateTextQuoteExists)
+        if ((duplicateImageQuoteExists || duplicateTextQuoteExists) && !request.Force)
         {
+            // Build a list of similar quotes to return to the admin UI.
+            var allImageQuotes = await _db.QuoteImages.AsNoTracking().ToListAsync();
+            var allTextQuotes = await _db.TextQuotes.AsNoTracking().ToListAsync();
+
+            var similarImages = allImageQuotes
+                .Where(q => StringSimilarity(quoteText, q.Quote) >= _quoteSimilarityThreshold)
+                .Select(q => new
+                {
+                    type = "image",
+                    id = q.Id,
+                    quote = q.Quote,
+                    author = q.Author,
+                    category = q.Category,
+                    finalImageUrl = q.FinalImageUrl
+                })
+                .ToList();
+
+            var similarTexts = allTextQuotes
+                .Where(q => StringSimilarity(quoteText, q.Quote) >= _quoteSimilarityThreshold)
+                .Select(q => new
+                {
+                    type = "text",
+                    id = q.Id,
+                    quote = q.Quote,
+                    author = q.Author,
+                    category = q.Category
+                })
+                .ToList();
+
+            var similar = similarImages.Cast<object>().Concat(similarTexts.Cast<object>()).ToList();
+
             return BadRequest(new
             {
                 message =
-                    $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}."
+                    $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}.",
+                similar
             });
         }
 
@@ -262,6 +294,7 @@ public class PhraseXController : ControllerBase
             request.ImageUrl,
             quoteText,
             logoName,
+            authorText,
             cancellationToken);
 
         var quote = new QuoteImage
@@ -661,6 +694,88 @@ public class PhraseXController : ControllerBase
             .ToListAsync();
 
         return Ok(accounts);
+    }
+
+    [HttpGet("admin/users")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetUsers()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var users = await _db.Users
+            .OrderBy(u => u.Email)
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.DisplayName,
+                u.IsAdmin
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+    [HttpPost("admin/users")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateUser(CreateUserRequest request)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(email)) return BadRequest(new { message = "Email is required." });
+        if (string.IsNullOrWhiteSpace(request.Password)) return BadRequest(new { message = "Password is required." });
+
+        if (await _db.Users.AnyAsync(u => u.Email == email))
+        {
+            return Conflict(new { message = "Email is already registered." });
+        }
+
+        var user = new AppUser { Email = email, DisplayName = request.DisplayName?.Trim() ?? string.Empty, IsAdmin = request.IsAdmin };
+        user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(user, request.Password);
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/admin/users/{user.Id}", new { user.Id, user.Email, user.DisplayName, user.IsAdmin });
+    }
+
+    [HttpPut("admin/users/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> UpdateUser(Guid id, UpdateUserRequest request)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "User not found." });
+
+        if (request.DisplayName is not null) user.DisplayName = request.DisplayName.Trim();
+        if (request.IsAdmin.HasValue) user.IsAdmin = request.IsAdmin.Value;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { user.Id, user.Email, user.DisplayName, user.IsAdmin });
+    }
+
+    [HttpDelete("admin/users/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteUser(Guid id)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        if (caller.Id == id) return BadRequest(new { message = "You cannot delete your own account." });
+
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "User not found." });
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
     }
 
     [HttpPost("admin/instagramaccounts")]
@@ -1121,6 +1236,168 @@ public class PhraseXController : ControllerBase
             .ToListAsync();
 
         return Ok(quotes);
+    }
+
+    [HttpDelete("admin/quotes/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteQuote(Guid id)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var quote = await _db.QuoteImages
+            .Include(q => q.Collections)
+            .Include(q => q.ScheduledPosts)
+            .SingleOrDefaultAsync(q => q.Id == id);
+
+        if (quote is null) return NotFound(new { message = "Quote not found." });
+
+        // Remove scheduled posts explicitly if any
+        if (quote.ScheduledPosts?.Any() == true)
+        {
+            _db.ScheduledPosts.RemoveRange(quote.ScheduledPosts);
+        }
+
+        // Many-to-many relationships will be handled by EF when the entity is removed
+        _db.QuoteImages.Remove(quote);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // ==========================================
+    // Collections (user-owned)
+    // ==========================================
+
+    [HttpGet("collections")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetCollections()
+    {
+        var user = await CurrentUser();
+
+        // Load collections and their related QuoteImages, then map to DTOs in memory
+        var cols = await _db.Collections
+            .Where(c => c.CreatedById == user.Id)
+            .Include(c => c.QuoteImages)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var dto = cols
+            .Select(c => new CollectionDto(c.Id, c.Name, c.CreatedAt, c.QuoteImages?.Count ?? 0))
+            .ToList();
+
+        return Ok(dto);
+    }
+
+    [HttpPost("collections")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateCollection(CreateCollectionRequest request)
+    {
+        var user = await CurrentUser();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(new { message = "Collection name is required." });
+        }
+
+        var collection = new Collection
+        {
+            Name = request.Name.Trim(),
+            CreatedById = user.Id,
+            CreatedBy = user
+        };
+
+        _db.Collections.Add(collection);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/collections/{collection.Id}", new CollectionDto(collection.Id, collection.Name, collection.CreatedAt, collection.QuoteImages.Count));
+    }
+
+    [HttpGet("collections/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetCollection(Guid id)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .ThenInclude(q => q.Tags)
+            .Include(c => c.QuoteImages)
+            .ThenInclude(q => q.CreatedBy)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var items = collection.QuoteImages
+            .OrderByDescending(q => q.CreatedAt)
+            .Select(q => new QuoteImageDto(q.Id, q.Quote, q.Author, q.Category, q.FinalImageUrl))
+            .ToList();
+
+        return Ok(new { collection = new CollectionDto(collection.Id, collection.Name, collection.CreatedAt, collection.QuoteImages.Count), items });
+    }
+
+    [HttpDelete("collections/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteCollection(Guid id)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        // Remove relationship entries are handled by EF for many-to-many
+        _db.Collections.Remove(collection);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpPost("collections/{id:guid}/items")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> AddToCollection(Guid id, AddToCollectionRequest request)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var quote = await _db.QuoteImages.FindAsync(request.QuoteImageId);
+        if (quote is null) return NotFound(new { message = "Quote not found." });
+
+        if (!collection.QuoteImages.Any(q => q.Id == quote.Id))
+        {
+            collection.QuoteImages.Add(quote);
+            await _db.SaveChangesAsync();
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete("collections/{id:guid}/items/{quoteId:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> RemoveFromCollection(Guid id, Guid quoteId)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var existing = collection.QuoteImages.FirstOrDefault(q => q.Id == quoteId);
+        if (existing is null) return NotFound(new { message = "Item not found in collection." });
+
+        collection.QuoteImages.Remove(existing);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
     }
 
     // ==========================================

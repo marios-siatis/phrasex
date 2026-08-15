@@ -243,34 +243,159 @@ nav {
 }
 
 .sectionHead {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.collectionCard {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  height: 180px;
+  display: block;
+  text-align: left;
+}
+
+.collectionCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.collectionCardWrapper { position: relative }
+
+.collectionDeleteButton {
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collectionPlaceholder {
+  width: 100%;
+  height: 100%;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  color: var(--muted);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));
+}
+
+.collectionOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+  color: var(--text);
   display: flex;
   justify-content: space-between;
   align-items: end;
-  margin-bottom: 25px;
 }
 
-.sectionHead h2 {
-  font: 700 35px 'Playfair Display';
-  margin: 0;
-  color: var(--text);
+.collectionTitle {
+  font-weight: 700;
+  font-size: 16px;
 }
 
-.sectionHead>span {
+.collectionCount {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
-.imageGrid {
+.collectionsModalGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
-figure {
-  margin: 0;
-  background: var(--surface);
+/* Collections page grid */
+.collectionsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.collectionsModalCard {
+  position: relative;
+  background: var(--surface-2);
   border: 1px solid var(--line);
+  border-radius: 8px;
   overflow: hidden;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collectionsModalCard img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.collectionThumbPlaceholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.collectionsModalMeta {
+  flex: 1;
+  text-align: left;
+}
+
+.collectionsModalMeta strong { display:block }
+
+.collectionsModalCheck {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-bright);
+}
+
+.collectionsModalCard.isMember {
+  background: linear-gradient(90deg, rgba(139,92,246,0.06), var(--surface-2));
+  border-color: var(--accent-bright);
+}
+
+.createNewToggle {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .imageGrid img {
@@ -359,6 +484,30 @@ figure {
 .quotePinDetails span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.quotePinWrapper {
+  position: relative;
+}
+
+.saveCollectionButton {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  background: rgba(0,0,0,0.5);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+}
+
+.saveCollectionDialog .collectionsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
 }
 
 .imageGrid figcaption {
@@ -1086,4 +1235,391 @@ textarea {
 
 .categorySelect option {
   padding: 10px;
+}
+
+.userManagement {
+  padding: 40px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.userManagementHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.userManagementHeader h1 {
+  margin: 6px 0;
+}
+
+.userManagementHeader p {
+  margin: 0;
+  opacity: 0.65;
+}
+
+.eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+.userManagementToolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.userSearch {
+  flex: 1;
+  max-width: 600px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 15px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.userSearch span {
+  font-size: 22px;
+  opacity: 0.6;
+}
+
+.userSearch input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  padding: 14px 0;
+}
+
+.userRoleFilter {
+  padding: 13px 38px 13px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  cursor: pointer;
+}
+
+.userRoleFilter option {
+  background: #17131f;
+  color: white;
+}
+
+.userCount {
+  margin-left: auto;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.userTableContainer {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.userTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.userTable th {
+  text-align: left;
+  padding: 16px 20px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.userTable td {
+  padding: 17px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.userTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.userTable tbody tr:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.userIdentity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.userIdentity strong {
+  display: block;
+}
+
+.userAvatar {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9b6cff, #6841d9);
+  color: white;
+  font-weight: 700;
+}
+
+.userId {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  opacity: 0.35;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roleBadge {
+  display: inline-flex;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.roleBadge.admin {
+  background: rgba(155, 108, 255, 0.18);
+  color: #c4a8ff;
+}
+
+.userActions {
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.actionButton:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.actionButton.danger {
+  color: #ff8d8d;
+}
+
+.actionButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.userManagementAlert {
+  padding: 13px 16px;
+  border-radius: 10px;
+  margin-bottom: 18px;
+}
+
+.userManagementAlert.error {
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.userManagementAlert.success {
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  background: rgba(74, 222, 128, 0.07);
+}
+
+.userManagementAlert strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.userManagementEmpty {
+  padding: 70px 20px;
+  text-align: center;
+  opacity: 0.65;
+}
+
+.userManagementEmpty h3 {
+  margin-bottom: 5px;
+}
+
+.userSpinner {
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 15px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: userSpinner 0.8s linear infinite;
+}
+
+@keyframes userSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+
+.userModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.userModal {
+  width: min(500px, 100%);
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: #11101a;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+}
+
+.userModalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 25px;
+}
+
+.userModalHeader h2 {
+  margin: 5px 0 0;
+}
+
+.modalClose {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font-size: 25px;
+  cursor: pointer;
+}
+
+.userModal label {
+  display: block;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+
+.userModal label > input:not([type='checkbox']) {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 7px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+}
+
+.adminToggle {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.adminToggle strong {
+  display: block;
+}
+
+.adminToggle small {
+  display: block;
+  margin-top: 4px;
+  opacity: 0.5;
+}
+
+.adminToggle input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: #8b5cf6;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.secondaryButton {
+  padding: 11px 17px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.modalActions .gold {
+  border: 0;
+  padding: 11px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.modalActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .userManagement {
+    padding: 20px;
+  }
+
+  .userManagementHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .userManagementToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .userSearch {
+    max-width: none;
+  }
+
+  .userCount {
+    margin-left: 0;
+  }
+
+  .userTableContainer {
+    overflow-x: auto;
+  }
+
+  .userTable {
+    min-width: 750px;
+  }
 }

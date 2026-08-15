@@ -1,7 +1,10 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Heart, LogOut, Search, Sparkles, UserRound, X } from 'lucide-react';
+import { ToastProvider } from './toast';
+import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark, Check, Trash2 } from 'lucide-react';
 import './styles.css';
+import AdminManageQuotes from './AdminManageQuotes';
+import UserManagement from './UserManagement';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_BASE = API.replace(/\/api\/?$/, '');
@@ -64,6 +67,9 @@ type Quote = {
   category?: string;
 };
 
+type CollectionDto = { id: string; name: string; createdAt: string; itemCount: number };
+type CollectionCard = CollectionDto & { thumbnail?: string; itemIds?: string[] };
+
 type AdminQuoteImage = {
   id: string;
   quote: string;
@@ -119,10 +125,19 @@ function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
   const [branding, setBranding] = useState<Branding | null>(null);
-  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule'>('home');
+
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
+  const [collections, setCollections] = useState<CollectionCard[]>([]);
+  const [saveModalQuote, setSaveModalQuote] = useState<Quote | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showCreateNew, setShowCreateNew] = useState(false);
+  const [savedQuoteIds, setSavedQuoteIds] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule' | 'collections' | 'collection' | 'manageUsers' | 'manageQuotes'>('home');
+  const [selectedCollection, setSelectedCollection] = useState<CollectionDto | null>(null);
+  const [collectionItems, setCollectionItems] = useState<Quote[]>([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [selectedQuoteCategories, setSelectedQuoteCategories] = useState<string[]>([]);
 
@@ -148,6 +163,41 @@ function App() {
         localStorage.removeItem('px_token');
         setToken('');
       });
+
+    // load user collections and saved ids
+    const loadCollectionsAndSaved = async () => {
+      try {
+        const cols: CollectionDto[] = await request('/collections', token);
+
+        // fetch items for each collection to build saved IDs set and pick a thumbnail
+        const details = await Promise.all(
+          cols.map((c) => request(`/collections/${c.id}`, token).catch(() => null))
+        );
+
+        const ids = new Set<string>();
+        const cards: CollectionCard[] = cols.map((c, idx) => {
+          const d = details[idx];
+          if (d?.items) {
+            for (const it of d.items) ids.add(it.id);
+          }
+
+          const first = d?.items && d.items.length ? d.items[0] : null;
+          return {
+            ...c,
+            thumbnail: first ? getImageUrl(first.finalImageUrl) : undefined,
+            itemIds: d?.items ? d.items.map((it: any) => it.id) : [],
+          };
+        });
+
+        setCollections(cards);
+        setSavedQuoteIds(ids);
+      } catch (err) {
+        setCollections([]);
+        setSavedQuoteIds(new Set());
+      }
+    };
+
+    loadCollectionsAndSaved();
   }, [token]);
 
   useEffect(() => {
@@ -221,10 +271,22 @@ function App() {
         </form>
 
         <nav>
+          <button className="adminLink" onClick={() => {
+            setView('collections');
+            setProfileMenuOpen(false);
+          }}>
+            My Collections
+          </button>
           {user?.isAdmin && (
             <>
               <button className="adminLink" onClick={() => setView('admin')}>
                 Create
+              </button>
+              <button className="adminLink" onClick={() => setView('manageQuotes')}>
+                Manage quotes
+              </button>
+              <button className="adminLink" onClick={() => setView('manageUsers')}>
+                Manage Users
               </button>
               <button className="adminLink" onClick={() => setView('schedule')}>
                 Schedule
@@ -288,6 +350,114 @@ function App() {
         <Profile user={user} categories={categories} token={token} save={setUser} />
       )}
 
+      {view === 'collections' && (
+        <section className="page">
+          <p className="eyebrow">YOUR COLLECTIONS</p>
+          <h1>Your collections</h1>
+          <div className="collectionsGrid">
+            {collections.length ? (
+              collections.map((c) => (
+                <div key={c.id} className="collectionCardWrapper">
+                  <button
+                    className="collectionCard"
+                    onClick={async () => {
+                      setView('collection');
+                      // load collection details
+                      try {
+                        const res = await request(`/collections/${c.id}`, token);
+                        setSelectedCollection(res.collection);
+                        setCollectionItems(res.items || []);
+                      } catch (err) {
+                        setNotice((err as Error).message);
+                      }
+                    }}
+                  >
+                    {c.thumbnail ? (
+                      <img src={c.thumbnail} alt={c.name} />
+                    ) : (
+                      <div className="collectionPlaceholder">{c.name[0]}</div>
+                    )}
+
+                    <div className="collectionOverlay">
+                      <div className="collectionTitle">{c.name}</div>
+                      <div className="collectionCount">{c.itemCount} items</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="collectionDeleteButton"
+                    title="Delete collection"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Delete collection "${c.name}"? This cannot be undone.`)) return;
+                      try {
+                        await request(`/collections/${c.id}`, token, { method: 'DELETE' });
+                        setCollections((prev) => prev.filter((x) => x.id !== c.id));
+                        if (selectedCollection?.id === c.id) {
+                          setView('collections');
+                          setSelectedCollection(null);
+                          setCollectionItems([]);
+                        }
+                      } catch (err) {
+                        setNotice((err as Error).message);
+                      }
+                    }}
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="empty">You have no collections yet. Save quotes to create one.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {view === 'collection' && selectedCollection && (
+        <section className="page">
+          <p className="eyebrow">COLLECTION</p>
+          <h1>{selectedCollection.name}</h1>
+          <button className="textButton" onClick={() => { setView('collections'); setSelectedCollection(null); setCollectionItems([]); }}>
+            Back to collections
+          </button>
+
+          <div className="quoteGrid" style={{ marginTop: 20 }}>
+            {collectionItems.map((q) => (
+              <div key={q.id} className="quotePinWrapper">
+                <button
+                  type="button"
+                  className="quotePin"
+                  onClick={() => setQuotePreview(q)}
+                  aria-label={`Preview quote: ${q.quote}`}
+                >
+                  <img src={getImageUrl(q.finalImageUrl)} alt={q.quote} />
+                  <span className="quotePinDetails">
+                    <strong>“{q.quote}”</strong>
+                    <span>— {q.author}</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="saveCollectionButton"
+                  title="Save to collection"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSaveModalQuote(q);
+                  }}
+                >
+                  {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
+                </button>
+              </div>
+            ))}
+
+            {!collectionItems.length && <p className="empty">No quotes in this collection.</p>}
+          </div>
+        </section>
+      )}
+
       {view === 'admin' && user?.isAdmin && (
         <Studio
           token={token}
@@ -300,6 +470,14 @@ function App() {
             setNotice('Your branded quote image is ready.');
           }}
         />
+      )}
+
+      {view === 'manageQuotes' && user?.isAdmin && (
+        <AdminManageQuotes token={token} />
+      )}
+
+      {view === 'manageUsers' && user?.isAdmin && (
+        <UserManagement token={token} />
       )}
 
       {view === 'branding' && user?.isAdmin && (
@@ -387,22 +565,35 @@ function App() {
 
                 <div className="quoteGrid">
                   {visibleQuotes.map((q) => (
-                    <button
-                      type="button"
-                      className="quotePin"
-                      key={q.id}
-                      onClick={() => setQuotePreview(q)}
-                      aria-label={`Preview quote: ${q.quote}`}
-                    >
-                      <img
-                        src={getImageUrl(q.finalImageUrl)}
-                        alt={q.quote}
-                      />
-                      <span className="quotePinDetails">
-                        <strong>“{q.quote}”</strong>
-                        <span>— {q.author}</span>
-                      </span>
-                    </button>
+                    <div key={q.id} className="quotePinWrapper">
+                      <button
+                        type="button"
+                        className="quotePin"
+                        onClick={() => setQuotePreview(q)}
+                        aria-label={`Preview quote: ${q.quote}`}
+                      >
+                        <img
+                          src={getImageUrl(q.finalImageUrl)}
+                          alt={q.quote}
+                        />
+                        <span className="quotePinDetails">
+                          <strong>“{q.quote}”</strong>
+                          <span>— {q.author}</span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="saveCollectionButton"
+                        title="Save to collection"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSaveModalQuote(q);
+                        }}
+                      >
+                        {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
+                      </button>
+                    </div>
                   ))}
                   {!visibleQuotes.length && (
                     <p className="empty">
@@ -448,6 +639,165 @@ function App() {
             <p className="small">
               “{quotePreview.quote}” — {quotePreview.author}
             </p>
+          </section>
+        </div>
+      )}
+
+      {saveModalQuote && (
+        <div
+          className="modal"
+          role="presentation"
+          onMouseDown={() => setSaveModalQuote(null)}
+        >
+          <section
+            className="dialog saveCollectionDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-quote-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="scheduleDialogClose"
+              onClick={() => setSaveModalQuote(null)}
+              aria-label="Close save dialog"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 id="save-quote-title">Save quote</h2>
+            <p className="small">“{saveModalQuote.quote}” — {saveModalQuote.author}</p>
+
+            <div className="collectionsModalGrid">
+              {collections.length ? (
+                collections.map((c) => {
+                  const isMember = !!c.itemIds && c.itemIds.includes(saveModalQuote.id);
+
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`collectionsModalCard ${isMember ? 'isMember' : ''}`}
+                      onClick={async () => {
+                        if (!token) return;
+                        setSaving(true);
+                        try {
+                          if (isMember) {
+                            // remove
+                            await request(`/collections/${c.id}/items/${saveModalQuote.id}`, token, {
+                              method: 'DELETE',
+                            });
+
+                            // update local state: remove id from this collection and possibly from saved set
+                            setCollections((prev) => prev.map((pc) => pc.id === c.id ? { ...pc, itemIds: (pc.itemIds || []).filter(id => id !== saveModalQuote.id), itemCount: Math.max(0, (pc.itemCount || 1) - 1) } : pc));
+
+                            // if no other collection contains this id, remove from savedQuoteIds
+                            const stillExists = collections.some((other) => other.id !== c.id && (other.itemIds || []).includes(saveModalQuote.id));
+                            if (!stillExists) {
+                              setSavedQuoteIds((s) => {
+                                const next = new Set(s);
+                                next.delete(saveModalQuote.id);
+                                return next;
+                              });
+                            }
+                          } else {
+                            // add
+                            await request(`/collections/${c.id}/items`, token, {
+                              method: 'POST',
+                              body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                            });
+
+                            setCollections((prev) => prev.map((pc) => pc.id === c.id ? { ...pc, itemIds: [...(pc.itemIds || []), saveModalQuote.id], itemCount: (pc.itemCount || 0) + 1 } : pc));
+                            setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
+                          }
+                        } catch (err) {
+                          setNotice((err as Error).message);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {c.thumbnail ? <img src={c.thumbnail} alt={c.name} /> : <div className="collectionThumbPlaceholder">{c.name[0]}</div>}
+                      <div className="collectionsModalMeta">
+                        <strong style={{ color: 'white' }}>{c.name}</strong>
+                        <span style={{ color: 'white' }} className="muted">{c.itemCount} items</span>
+                      </div>
+                      <div className="collectionsModalCheck">{isMember ? <Check /> : <Bookmark />}</div>
+                    </button>
+                  );
+                })
+              ) : (
+                <p className="empty">You have no collections yet.</p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              {!showCreateNew ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="createNewToggle"
+                    onClick={() => setShowCreateNew(true)}
+                    aria-label="Create new collection"
+                  >
+                    +
+                  </button>
+                  <span className="muted">Create a new collection</span>
+                </div>
+              ) : (
+                <>
+                  <label>
+                    Create new collection
+                    <input value={newCollectionName} onChange={(e) => setNewCollectionName(e.target.value)} />
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button
+                      className="gold"
+                      onClick={async () => {
+                        if (!token || !newCollectionName.trim()) return;
+                        setSaving(true);
+                        try {
+                          const created = await request('/collections', token, {
+                            method: 'POST',
+                            body: JSON.stringify({ name: newCollectionName.trim() }),
+                          });
+
+                          // refresh collections to ensure DB state and get id if serializer casing differs
+                          const refreshed = await request('/collections', token);
+
+                          const createdId = created?.id ?? refreshed.find((x: any) => x.name === newCollectionName.trim())?.id;
+
+                          if (!createdId) {
+                            throw new Error('Could not determine created collection id.');
+                          }
+
+                          // add item to created collection
+                          await request(`/collections/${createdId}/items`, token, {
+                            method: 'POST',
+                            body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                          });
+
+                          // refresh collections and close
+                          setCollections(await request('/collections', token));
+                          // mark as saved locally
+                          setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
+                          setSaveModalQuote(null);
+                          setNewCollectionName('');
+                          setShowCreateNew(false);
+                        } catch (err) {
+                          setNotice((err as Error).message);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      Create & save
+                    </button>
+                    <button type="button" className="textButton" onClick={() => setShowCreateNew(false)}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
           </section>
         </div>
       )}
@@ -644,6 +994,7 @@ function Studio({
   const [tagsInput, setTagsInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [similarMatches, setSimilarMatches] = useState<any[] | null>(null);
 
   const STOP_WORDS = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
@@ -682,26 +1033,81 @@ function Studio({
 
     setBusy(true);
     setCreateError('');
+    setSimilarMatches(null);
+
+    try {
+      const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+      const tagsParam = encodeURIComponent(tagsInput || '');
+      // Use fetch directly so we can inspect error body for similar matches
+      const res = await fetch(`${API}/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: chosen.thumbnailUrl,
+          quote: quote.trim(),
+          author: author.trim(),
+          category: selectedCategory?.name ?? '',
+          logoName: effectiveLogo,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setCreateError(body?.message || 'Failed to create quote.');
+        if (Array.isArray(body?.similar) && body.similar.length > 0) {
+          setSimilarMatches(body.similar);
+        }
+        return;
+      }
+
+      const createdQuote = await res.json();
+      onCreated(createdQuote);
+    } catch (err) {
+      setCreateError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forceCreate = async () => {
+    if (!chosen || !quote.trim() || !author.trim() || !selectedCategoryId || !effectiveLogo) {
+      return;
+    }
+
+    setBusy(true);
+    setCreateError('');
 
     try {
       const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
       const tagsParam = encodeURIComponent(tagsInput || '');
 
-      const createdQuote = await request(
-        `/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`,
-        token,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            imageUrl: chosen.thumbnailUrl,
-            quote: quote.trim(),
-            author: author.trim(),
-            category: selectedCategory?.name ?? '',
-            logoName: effectiveLogo,
-          }),
-        }
-      );
+      const res = await fetch(`${API}/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: chosen.thumbnailUrl,
+          quote: quote.trim(),
+          author: author.trim(),
+          category: selectedCategory?.name ?? '',
+          logoName: effectiveLogo,
+          force: true,
+        }),
+      });
 
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setCreateError(body?.message || 'Failed to create quote.');
+        return;
+      }
+
+      const createdQuote = await res.json();
+      setSimilarMatches(null);
       onCreated(createdQuote);
     } catch (err) {
       setCreateError((err as Error).message);
@@ -849,6 +1255,45 @@ function Studio({
               </strong>
 
               <span>{createError}</span>
+            </div>
+          )}
+
+          {similarMatches && similarMatches.length > 0 && (
+            <div
+              role="region"
+              aria-label="Similar quotes"
+              style={{
+                marginTop: '18px',
+                padding: '14px',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.04)',
+                background: 'rgba(255,255,255,0.02)'
+              }}
+            >
+              <h3 style={{ margin: '0 0 10px' }}>Similar quotes found</h3>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {similarMatches.map((s: any, idx: number) => (
+                  <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {s.type === 'image' ? (
+                      <img
+                        src={getImageUrl(s.finalImageUrl)}
+                        alt={s.quote} style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8 }} />
+                    ) : (
+                      <div style={{ width: 84, height: 84, borderRadius: 8, background: 'rgba(255,255,255,0.02)', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>{s.quote?.[0]}</div>
+                    )}
+
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ display: 'block' }}>{s.quote}</strong>
+                      <div style={{ color: 'var(--muted)' }}>— {s.author}{s.category ? ` · ${s.category}` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <button className="gold" onClick={forceCreate} disabled={busy}>{busy ? 'Creating…' : 'Force create'}</button>
+                <button type="button" className="textButton" onClick={() => setSimilarMatches(null)}>Cancel</button>
+              </div>
             </div>
           )}
 
@@ -2080,4 +2525,8 @@ function BrandingPage({
   );
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <ToastProvider>
+    <App />
+  </ToastProvider>
+);
