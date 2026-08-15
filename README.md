@@ -39,3 +39,15 @@ Build and push the API image to the Terraform-created ECR repository. Build the 
 - `Jwt:Key` — a long random signing key
 - `Pexels:ApiKey` — Pexels API key; only used server-side
 - `Database:ConnectionString` — supplied automatically by the ECS task definition
+
+
+
+TODO:
+
+Split tsx into separate UI files 
+GIve me the list of similar quotes and force create
+As an admin i will need the ability to remove quotes 
+
+create image should give me the ability preview quotes - is also missing author 
+HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to 
+create collections of my quotes 
