@@ -92,7 +92,7 @@ function App() {
   const [token, setToken] = useState(localStorage.getItem('px_token') || '');
   const [user, setUser] = useState<User | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [query, setQuery] = useState('inspiration');
+  const [query, setQuery] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
@@ -168,8 +168,8 @@ function App() {
 
   const visibleQuotes = selectedQuoteCategories.length
     ? quotes.filter((quote) =>
-        quote.category ? selectedQuoteCategories.includes(quote.category) : false
-      )
+      quote.category ? selectedQuoteCategories.includes(quote.category) : false
+    )
     : quotes;
 
   if (!token) {
@@ -225,30 +225,30 @@ function App() {
             >
               <UserRound />
             </button>
-          <button
-            className="avatar"
-            onClick={() => setProfileMenuOpen((open) => !open)}
-            aria-label="Account menu"
-            aria-expanded={profileMenuOpen}
-          >
-            {user?.displayName?.[0]}
-          </button>
-          {profileMenuOpen && (
-            <div className="profileMenuPopover">
-              <button
-                type="button"
-                onClick={() => {
-                  setView('profile');
-                  setProfileMenuOpen(false);
-                }}
-              >
-                <UserRound size={16} /> Profile
-              </button>
-              <button type="button" onClick={signOut}>
-                <LogOut size={16} /> Log out
-              </button>
-            </div>
-          )}
+            <button
+              className="avatar"
+              onClick={() => setProfileMenuOpen((open) => !open)}
+              aria-label="Account menu"
+              aria-expanded={profileMenuOpen}
+            >
+              {user?.displayName?.[0]}
+            </button>
+            {profileMenuOpen && (
+              <div className="profileMenuPopover">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setView('profile');
+                    setProfileMenuOpen(false);
+                  }}
+                >
+                  <UserRound size={16} /> Profile
+                </button>
+                <button type="button" onClick={signOut}>
+                  <LogOut size={16} /> Log out
+                </button>
+              </div>
+            )}
           </div>
         </nav>
       </header>
@@ -306,7 +306,7 @@ function App() {
               <br />
               <em>{branding?.description ?? 'Frame the moment.'}</em>
             </h1>
-            <p>{ 'Frame the moment'}</p>
+            <p>{'Frame the moment'}</p>
           </section>
 
           <section className="content">
@@ -612,7 +612,7 @@ function Studio({
   categories: Category[];
   onCreated: (q: Quote) => void;
 }) {
-  const [query, setQuery] = useState('love');
+  const [query, setQuery] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [chosen, setChosen] = useState<Photo | null>(null);
   const [quote, setQuote] = useState('');
@@ -695,92 +695,24 @@ function Studio({
 
       <div className="studioLayout">
         <div>
-          <form className="search studioSearch" onSubmit={search}>
-            <Search size={18} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} />
-            <button>Find photos</button>
-          </form>
-
-          <div className="picker">
-            {photos.map((p) => (
-              <button
-                onClick={() => setChosen(p)}
-                className={chosen?.id === p.id ? 'chosen' : ''}
-                key={p.id}
-              >
-                <img src={p.thumbnailUrl} alt={p.alt} />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <aside>
           <div className="preview">
-            {chosen ? <img src={chosen.thumbnailUrl} /> : <span>Select a Pexels image</span>}
+            {chosen ? (
+              <img
+                src={chosen.thumbnailUrl}
+                alt={chosen.alt || "Selected Pexels image"}
+                style={{
+                  height: '360px',
+                  width: 'auto',
+                  maxWidth: '100%',
+                  objectFit: 'contain',
+                  display: 'block',
+                  margin: '0 auto',
+                }}
+              />
+            ) : (
+              <span>Select a Pexels image</span>
+            )}
           </div>
-
-          <label>
-            Author *
-            <input
-              required
-              type="text"
-              value={author}
-              onChange={(e) => {
-                setAuthor(e.target.value);
-                setCreateError('');
-              }}
-              placeholder="Who said it?"
-            />
-          </label>
-
-          <label>
-            Category *
-            <select
-              required
-              value={selectedCategoryId ?? undefined}
-              onChange={(e) => {
-                setSelectedCategoryId(Number(e.target.value));
-                setCreateError('');
-              }}
-            >
-              <option value="">Select a category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Tags (optional, comma separated)
-            <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
-          </label>
-
-          <label>
-            Logo
-            <div className="logoGrid">
-              {logos.length ? (
-                logos.map((logo) => (
-                  <button
-                    type="button"
-                    key={logo.name}
-                    className={effectiveLogo === logo.name ? 'chosen' : ''}
-                    onClick={() => setSelectedLogo(logo.name)}
-                  >
-                    <img src={logo.url} alt={logo.name} />
-                  </button>
-                ))
-              ) : (
-                <span className="small">No logos available yet.</span>
-              )}
-            </div>
-            <p className="small">
-              {effectiveLogo
-                ? `Using ${effectiveLogo} as the selected logo.`
-                : 'Select a logo or save one as the default branding logo.'}
-            </p>
-          </label>
 
           <label>
             Quote text *
@@ -798,6 +730,82 @@ function Studio({
             />
           </label>
 
+          <label>
+            Author *
+            <input
+              required
+              type="text"
+              value={author}
+              onChange={(e) => {
+                setAuthor(e.target.value);
+                setCreateError('');
+              }}
+              placeholder="Who said it?"
+            />
+          </label>
+
+          <label>
+            Category *
+            <div className="categorySelectWrapper">
+              <select
+                required
+                className="categorySelect"
+                value={selectedCategoryId ?? ''}
+                onChange={(e) => {
+                  setSelectedCategoryId(
+                    e.target.value ? Number(e.target.value) : null
+                  );
+                  setCreateError('');
+                }}
+              >
+                <option value="">Select a category</option>
+
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <span className="categorySelectArrow">⌄</span>
+            </div>
+          </label>
+
+          <label>
+            Tags (optional, comma separated)
+            <input
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+            />
+          </label>
+
+          <label>
+            Logo
+
+            <div className="logoGrid">
+              {logos.length ? (
+                logos.map((logo) => (
+                  <button
+                    type="button"
+                    key={logo.name}
+                    className={effectiveLogo === logo.name ? 'chosen' : ''}
+                    onClick={() => setSelectedLogo(logo.name)}
+                  >
+                    <img src={logo.url} alt={logo.name} />
+                  </button>
+                ))
+              ) : (
+                <span className="small">No logos available yet.</span>
+              )}
+            </div>
+
+            <p className="small">
+              {effectiveLogo
+                ? `Using ${effectiveLogo} as the selected logo.`
+                : 'Select a logo or save one as the default branding logo.'}
+            </p>
+          </label>
+
           {createError && (
             <div
               role="alert"
@@ -809,24 +817,66 @@ function Studio({
                 background: 'rgba(220, 38, 38, 0.08)',
               }}
             >
-              <strong style={{ display: 'block', marginBottom: '5px' }}>
+              <strong
+                style={{
+                  display: 'block',
+                  marginBottom: '5px',
+                }}
+              >
                 Quote not saved
               </strong>
+
               <span>{createError}</span>
             </div>
           )}
 
           <p className="small">
-            The quote is centered on the image. The PhraseX wordmark is added underneath.
+            The quote is centered on the image. The PhraseX wordmark is added
+            underneath.
           </p>
 
           <button
-            disabled={!chosen || !quote.trim() || !author.trim() || !effectiveLogo || !selectedCategoryId || busy}
+            disabled={
+              !chosen ||
+              !quote.trim() ||
+              !author.trim() ||
+              !effectiveLogo ||
+              !selectedCategoryId ||
+              busy
+            }
             className="gold"
             onClick={create}
           >
             {busy ? 'Creating image…' : 'Create quote image'}
           </button>
+        </div>
+
+        <aside>
+          <form style={{ marginTop:0 }} className="search studioSearch" onSubmit={search}>
+            <Search size={18} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search photos..."
+            />
+
+            <button type="submit">
+              Find photos
+            </button>
+          </form>
+
+          <div className="picker">
+            {photos.map((p) => (
+              <button
+                type="button"
+                onClick={() => setChosen(p)}
+                className={chosen?.id === p.id ? 'chosen' : ''}
+                key={p.id}
+              >
+                <img src={p.thumbnailUrl} alt={p.alt} />
+              </button>
+            ))}
+          </div>
         </aside>
       </div>
     </section>
