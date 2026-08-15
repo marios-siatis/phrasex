@@ -124,7 +124,7 @@ public class ImageComposer(
 
         var authorOptions = new RichTextOptions(authorFont)
         {
-            Origin = new PointF(540, 675),
+            Origin = new PointF(540, 725),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             WrappingLength = 860,
@@ -172,7 +172,7 @@ public class ImageComposer(
             image.Height - logoHeight - 60);
 
         // ---------------------------------------------------------
-        // SEPARATE BLURRED BACKGROUND BEHIND QUOTE
+        // SEPARATE SOFT HALO BEHIND QUOTE
         // ---------------------------------------------------------
 
         using var quoteGlow = new Image<Rgba32>(
@@ -182,14 +182,18 @@ public class ImageComposer(
 
         quoteGlow.Mutate(ctx =>
         {
+            // Narrow, centered halo around the quote and author.
+            // This avoids creating a large dark rectangle across
+            // the photograph.
             ctx.Fill(
                 Color.FromRgba(0, 0, 0, 110),
                 new Rectangle(
-                    70,
-                    390,
-                    image.Width - 140,
-                    430));
+                    160,
+                    430,
+                    760,
+                    300));
 
+            // Soft atmospheric edges.
             ctx.GaussianBlur(68);
         });
 
@@ -202,7 +206,7 @@ public class ImageComposer(
         });
 
         // ---------------------------------------------------------
-        // SEPARATE NARROW HALO BEHIND LOGO
+        // SEPARATE SOFT HALO BEHIND LOGO
         // ---------------------------------------------------------
 
         using var logoGlow = new Image<Rgba32>(
@@ -212,8 +216,8 @@ public class ImageComposer(
 
         logoGlow.Mutate(ctx =>
         {
-            // Narrower horizontal area so this reads as a
-            // subtle halo around the logo rather than a dark strip.
+            // Much narrower than the quote halo.
+            // This creates a localized halo around the branding.
             ctx.Fill(
                 Color.FromRgba(0, 0, 0, 110),
                 new Rectangle(
@@ -222,7 +226,7 @@ public class ImageComposer(
                     260,
                     180));
 
-            // Same softness as the quote glow.
+            // Soft atmospheric edges.
             ctx.GaussianBlur(68);
         });
 
