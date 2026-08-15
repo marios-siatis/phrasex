@@ -30,7 +30,7 @@ variable "api_desired_count" {
 
 variable "lambda_threshold_hours" {
   type    = number
-  default = 0
+  default = 4
 }
 
 variable "lambda_instagram_graph_version" {
