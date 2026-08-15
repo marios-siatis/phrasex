@@ -6,6 +6,27 @@ import './styles.css';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_BASE = API.replace(/\/api\/?$/, '');
 
+// Quote images are stored in private S3 and served through CloudFront.
+// If VITE_IMAGE_URL is missing, use the production CloudFront distribution.
+const IMAGE_BASE_URL = (
+  import.meta.env.VITE_IMAGE_URL || 'https://dsq69tvlzuqd.cloudfront.net'
+).replace(/\/+$/, '');
+
+const getImageUrl = (imageUrl?: string | null) => {
+  if (!imageUrl?.trim()) return '';
+
+  const value = imageUrl.trim();
+
+  // The API may return either a relative S3 object path or a full S3 URL.
+  // Always serve quote images through CloudFront.
+  try {
+    const parsed = new URL(value);
+    return `${IMAGE_BASE_URL}${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return `${IMAGE_BASE_URL}/${value.replace(/^\/+/, '')}`;
+  }
+};
+
 type Category = { id: number; name: string };
 
 type User = {
@@ -373,7 +394,7 @@ function App() {
                       aria-label={`Preview quote: ${q.quote}`}
                     >
                       <img
-                        src={`${import.meta.env.VITE_IMAGE_URL}${q.finalImageUrl}`}
+                        src={getImageUrl(q.finalImageUrl)}
                         alt={q.quote}
                       />
                       <span className="quotePinDetails">
@@ -420,7 +441,7 @@ function App() {
             <h2 id="home-quote-preview-title">Quote preview</h2>
             <img
               className="quotePreviewImage"
-              src={`${import.meta.env.VITE_IMAGE_URL}${quotePreview.finalImageUrl}`}
+              src={getImageUrl(quotePreview.finalImageUrl)}
               alt={quotePreview.quote}
             />
             <p className="small">
@@ -1652,11 +1673,7 @@ function SchedulePage({ token }: { token: string }) {
                     >
                       {quote.finalImageUrl && (
                         <img
-                          src={
-                            quote.finalImageUrl?.startsWith("http")
-                              ? quote.finalImageUrl
-                              : `${import.meta.env.VITE_IMAGE_URL ?? ""}${quote.finalImageUrl ?? ""}`
-                          }
+                          src={getImageUrl(quote.finalImageUrl)}
                           alt={quote.quote}
                         />
                       )}
@@ -1764,11 +1781,7 @@ function SchedulePage({ token }: { token: string }) {
                                   aria-label={`Preview quote: ${post.quoteImage.quote}`}
                                 >
                                   <img
-                                    src={
-                                      post.quoteImage.finalImageUrl?.startsWith("http")
-                                        ? post.quoteImage.finalImageUrl
-                                        : `${import.meta.env.VITE_IMAGE_URL ?? ""}${post.quoteImage.finalImageUrl ?? ""}`
-                                    }
+                                    src={getImageUrl(post.quoteImage.finalImageUrl)}
                                     alt=""
                                   />
                                 </button>
@@ -1958,11 +1971,7 @@ function SchedulePage({ token }: { token: string }) {
             <h2 id="quote-preview-title">Quote preview</h2>
             <img
               className="quotePreviewImage"
-              src={
-                previewQuote.finalImageUrl?.startsWith("http")
-                  ? previewQuote.finalImageUrl
-                  : `${import.meta.env.VITE_IMAGE_URL ?? ""}${previewQuote.finalImageUrl ?? ""}`
-              }
+              src={getImageUrl(previewQuote.finalImageUrl)}
               alt={previewQuote.quote}
             />
             <p className="small">
