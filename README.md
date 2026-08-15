@@ -45,9 +45,10 @@ Build and push the API image to the Terraform-created ECR repository. Build the 
 TODO:
 
 Split tsx into separate UI files 
-GIve me the list of similar quotes and force create
+GIve me the list of similar quotes and force create ✅ 
 As an admin i will need the ability to remove quotes 
 
-create image should give me the ability preview quotes - is also missing author 
-HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to 
-create collections of my quotes 
+create image should give me the ability preview quotes 
+fix missing author  ✅ 
+HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to  ✅  (in lambda config)
+create collections of my quotes  ✅ 

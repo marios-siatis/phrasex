@@ -186,7 +186,7 @@ public class ImageComposer(
             // This avoids creating a large dark rectangle across
             // the photograph.
             ctx.Fill(
-                Color.FromRgba(0, 0, 0, 110),
+                Color.FromRgba(0, 0, 0, 90),
                 new Rectangle(
                     160,
                     430,
@@ -219,7 +219,7 @@ public class ImageComposer(
             // Much narrower than the quote halo.
             // This creates a localized halo around the branding.
             ctx.Fill(
-                Color.FromRgba(0, 0, 0, 110),
+                Color.FromRgba(0, 0, 0, 90),
                 new Rectangle(
                     410,
                     image.Height - 330,

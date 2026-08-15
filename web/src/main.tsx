@@ -363,16 +363,16 @@ function App() {
                       }
                     }}
                   >
-                  {c.thumbnail ? (
-                    <img src={c.thumbnail} alt={c.name} />
-                  ) : (
-                    <div className="collectionPlaceholder">{c.name[0]}</div>
-                  )}
+                    {c.thumbnail ? (
+                      <img src={c.thumbnail} alt={c.name} />
+                    ) : (
+                      <div className="collectionPlaceholder">{c.name[0]}</div>
+                    )}
 
-                  <div className="collectionOverlay">
-                    <div className="collectionTitle">{c.name}</div>
-                    <div className="collectionCount">{c.itemCount} items</div>
-                  </div>
+                    <div className="collectionOverlay">
+                      <div className="collectionTitle">{c.name}</div>
+                      <div className="collectionCount">{c.itemCount} items</div>
+                    </div>
                   </button>
 
                   <button
@@ -977,6 +977,7 @@ function Studio({
   const [tagsInput, setTagsInput] = useState('');
   const [busy, setBusy] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [similarMatches, setSimilarMatches] = useState<any[] | null>(null);
 
   const STOP_WORDS = new Set([
     'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
@@ -1015,26 +1016,81 @@ function Studio({
 
     setBusy(true);
     setCreateError('');
+    setSimilarMatches(null);
+
+    try {
+      const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
+      const tagsParam = encodeURIComponent(tagsInput || '');
+      // Use fetch directly so we can inspect error body for similar matches
+      const res = await fetch(`${API}/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: chosen.thumbnailUrl,
+          quote: quote.trim(),
+          author: author.trim(),
+          category: selectedCategory?.name ?? '',
+          logoName: effectiveLogo,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setCreateError(body?.message || 'Failed to create quote.');
+        if (Array.isArray(body?.similar) && body.similar.length > 0) {
+          setSimilarMatches(body.similar);
+        }
+        return;
+      }
+
+      const createdQuote = await res.json();
+      onCreated(createdQuote);
+    } catch (err) {
+      setCreateError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forceCreate = async () => {
+    if (!chosen || !quote.trim() || !author.trim() || !selectedCategoryId || !effectiveLogo) {
+      return;
+    }
+
+    setBusy(true);
+    setCreateError('');
 
     try {
       const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
       const tagsParam = encodeURIComponent(tagsInput || '');
 
-      const createdQuote = await request(
-        `/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`,
-        token,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            imageUrl: chosen.thumbnailUrl,
-            quote: quote.trim(),
-            author: author.trim(),
-            category: selectedCategory?.name ?? '',
-            logoName: effectiveLogo,
-          }),
-        }
-      );
+      const res = await fetch(`${API}/admin/quotes${tagsParam ? `?tags=${tagsParam}` : ''}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          imageUrl: chosen.thumbnailUrl,
+          quote: quote.trim(),
+          author: author.trim(),
+          category: selectedCategory?.name ?? '',
+          logoName: effectiveLogo,
+          force: true,
+        }),
+      });
 
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setCreateError(body?.message || 'Failed to create quote.');
+        return;
+      }
+
+      const createdQuote = await res.json();
+      setSimilarMatches(null);
       onCreated(createdQuote);
     } catch (err) {
       setCreateError((err as Error).message);
@@ -1182,6 +1238,45 @@ function Studio({
               </strong>
 
               <span>{createError}</span>
+            </div>
+          )}
+
+          {similarMatches && similarMatches.length > 0 && (
+            <div
+              role="region"
+              aria-label="Similar quotes"
+              style={{
+                marginTop: '18px',
+                padding: '14px',
+                borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.04)',
+                background: 'rgba(255,255,255,0.02)'
+              }}
+            >
+              <h3 style={{ margin: '0 0 10px' }}>Similar quotes found</h3>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {similarMatches.map((s: any, idx: number) => (
+                  <div key={idx} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    {s.type === 'image' ? (
+                      <img
+                        src={getImageUrl(s.finalImageUrl)}
+                        alt={s.quote} style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8 }} />
+                    ) : (
+                      <div style={{ width: 84, height: 84, borderRadius: 8, background: 'rgba(255,255,255,0.02)', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}>{s.quote?.[0]}</div>
+                    )}
+
+                    <div style={{ flex: 1 }}>
+                      <strong style={{ display: 'block' }}>{s.quote}</strong>
+                      <div style={{ color: 'var(--muted)' }}>— {s.author}{s.category ? ` · ${s.category}` : ''}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <button className="gold" onClick={forceCreate} disabled={busy}>{busy ? 'Creating…' : 'Force create'}</button>
+                <button type="button" className="textButton" onClick={() => setSimilarMatches(null)}>Cancel</button>
+              </div>
             </div>
           )}
 

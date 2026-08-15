@@ -238,12 +238,44 @@ public class PhraseXController : ControllerBase
                 q.Quote, q.Author, q.Category,
                 _quoteSimilarityThreshold));
 
-        if (duplicateImageQuoteExists || duplicateTextQuoteExists)
+        if ((duplicateImageQuoteExists || duplicateTextQuoteExists) && !request.Force)
         {
+            // Build a list of similar quotes to return to the admin UI.
+            var allImageQuotes = await _db.QuoteImages.AsNoTracking().ToListAsync();
+            var allTextQuotes = await _db.TextQuotes.AsNoTracking().ToListAsync();
+
+            var similarImages = allImageQuotes
+                .Where(q => StringSimilarity(quoteText, q.Quote) >= _quoteSimilarityThreshold)
+                .Select(q => new
+                {
+                    type = "image",
+                    id = q.Id,
+                    quote = q.Quote,
+                    author = q.Author,
+                    category = q.Category,
+                    finalImageUrl = q.FinalImageUrl
+                })
+                .ToList();
+
+            var similarTexts = allTextQuotes
+                .Where(q => StringSimilarity(quoteText, q.Quote) >= _quoteSimilarityThreshold)
+                .Select(q => new
+                {
+                    type = "text",
+                    id = q.Id,
+                    quote = q.Quote,
+                    author = q.Author,
+                    category = q.Category
+                })
+                .ToList();
+
+            var similar = similarImages.Cast<object>().Concat(similarTexts.Cast<object>()).ToList();
+
             return BadRequest(new
             {
                 message =
-                    $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}."
+                    $"This quote is too similar to an existing quote. Similarity threshold: {_quoteSimilarityThreshold:P0}.",
+                similar
             });
         }
 
