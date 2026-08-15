@@ -65,7 +65,7 @@ type Quote = {
 };
 
 type CollectionDto = { id: string; name: string; createdAt: string; itemCount: number };
-type CollectionCard = CollectionDto & { thumbnail?: string };
+type CollectionCard = CollectionDto & { thumbnail?: string; itemIds?: string[] };
 
 type AdminQuoteImage = {
   id: string;
@@ -181,6 +181,7 @@ function App() {
           return {
             ...c,
             thumbnail: first ? getImageUrl(first.finalImageUrl) : undefined,
+            itemIds: d?.items ? d.items.map((it: any) => it.id) : [],
           };
         });
 
@@ -625,35 +626,64 @@ function App() {
             <h2 id="save-quote-title">Save quote</h2>
             <p className="small">“{saveModalQuote.quote}” — {saveModalQuote.author}</p>
 
-            <div className="collectionsList">
+            <div className="collectionsModalGrid">
               {collections.length ? (
-                collections.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={async () => {
-                      if (!token) return;
-                      setSaving(true);
-                      try {
-                        await request(`/collections/${c.id}/items`, token, {
-                          method: 'POST',
-                          body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
-                        });
-                        // refresh collections after adding
-                        setCollections(await request('/collections', token));
-                        // mark as saved locally
-                        setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
-                        setSaveModalQuote(null);
-                      } catch (err) {
-                        setNotice((err as Error).message);
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                  >
-                    {c.name} ({c.itemCount})
-                  </button>
-                ))
+                collections.map((c) => {
+                  const isMember = !!c.itemIds && c.itemIds.includes(saveModalQuote.id);
+
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`collectionsModalCard ${isMember ? 'isMember' : ''}`}
+                      onClick={async () => {
+                        if (!token) return;
+                        setSaving(true);
+                        try {
+                          if (isMember) {
+                            // remove
+                            await request(`/collections/${c.id}/items/${saveModalQuote.id}`, token, {
+                              method: 'DELETE',
+                            });
+
+                            // update local state: remove id from this collection and possibly from saved set
+                            setCollections((prev) => prev.map((pc) => pc.id === c.id ? { ...pc, itemIds: (pc.itemIds || []).filter(id => id !== saveModalQuote.id), itemCount: Math.max(0, (pc.itemCount || 1) - 1) } : pc));
+
+                            // if no other collection contains this id, remove from savedQuoteIds
+                            const stillExists = collections.some((other) => other.id !== c.id && (other.itemIds || []).includes(saveModalQuote.id));
+                            if (!stillExists) {
+                              setSavedQuoteIds((s) => {
+                                const next = new Set(s);
+                                next.delete(saveModalQuote.id);
+                                return next;
+                              });
+                            }
+                          } else {
+                            // add
+                            await request(`/collections/${c.id}/items`, token, {
+                              method: 'POST',
+                              body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                            });
+
+                            setCollections((prev) => prev.map((pc) => pc.id === c.id ? { ...pc, itemIds: [...(pc.itemIds || []), saveModalQuote.id], itemCount: (pc.itemCount || 0) + 1 } : pc));
+                            setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
+                          }
+                        } catch (err) {
+                          setNotice((err as Error).message);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      {c.thumbnail ? <img src={c.thumbnail} alt={c.name} /> : <div className="collectionThumbPlaceholder">{c.name[0]}</div>}
+                      <div className="collectionsModalMeta">
+                        <strong>{c.name}</strong>
+                        <span className="muted">{c.itemCount} items</span>
+                      </div>
+                      <div className="collectionsModalCheck">{isMember ? <Check /> : <Bookmark />}</div>
+                    </button>
+                  );
+                })
               ) : (
                 <p className="empty">You have no collections yet.</p>
               )}
