@@ -8,23 +8,24 @@ const API_BASE = API.replace(/\/api\/?$/, '');
 
 // Quote images are stored in private S3 and served through CloudFront.
 // If VITE_IMAGE_URL is missing, use the production CloudFront distribution.
-const IMAGE_BASE_URL = (
-  import.meta.env.VITE_IMAGE_URL || 'https://dsq69tvlzuqd.cloudfront.net'
-).replace(/\/+$/, '');
+const IMAGE_BASE_URL = (import.meta.env.VITE_IMAGE_URL || '').replace(/\/+$/, '');
 
 const getImageUrl = (imageUrl?: string | null) => {
   if (!imageUrl?.trim()) return '';
 
   const value = imageUrl.trim();
 
-  // The API may return either a relative S3 object path or a full S3 URL.
-  // Always serve quote images through CloudFront.
-  try {
-    const parsed = new URL(value);
-    return `${IMAGE_BASE_URL}${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return `${IMAGE_BASE_URL}/${value.replace(/^\/+/, '')}`;
+  // Backend returned a complete URL: use it exactly as returned.
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return value;
   }
+
+  // Backend returned a local/relative path: prefix the configured image base URL.
+  if (!IMAGE_BASE_URL) {
+    return value;
+  }
+
+  return `${IMAGE_BASE_URL}/${value.replace(/^\/+/, '')}`;
 };
 
 type Category = { id: number; name: string };
