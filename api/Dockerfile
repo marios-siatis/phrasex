@@ -24,7 +24,7 @@ RUN apt-get update \
 # Install PhraseX fonts
 RUN mkdir -p /usr/local/share/fonts/phrasex
 
-COPY Fonts/*.ttf /usr/local/share/fonts/phrasex/
+COPY fonts/*.ttf /usr/local/share/fonts/phrasex/
 
 RUN fc-cache -f -v
 
