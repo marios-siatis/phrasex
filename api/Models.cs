@@ -198,6 +198,8 @@ public record RegisterRequest(string Email, string Password, string DisplayName)
 public record LoginRequest(string Email, string Password);
 public record ProfileRequest(string DisplayName, int[] CategoryIds);
 public record QuoteRequest(string ImageUrl, string Quote, string Author, string Category, string? Attribution, string? LogoName, bool Force = false);
+public record CreateUserRequest(string Email, string Password, string DisplayName, bool IsAdmin = false);
+public record UpdateUserRequest(string? DisplayName, bool? IsAdmin);
 public record BrandingRequest(string Title, string Description, string LogoName);
 public record BrandingResponse(string Title, string Description, string LogoName);
 public record InstagramAccountRequest(string InstagramUserId, string DisplayName, string AccessToken, string? RefreshToken);

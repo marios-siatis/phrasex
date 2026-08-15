@@ -696,6 +696,88 @@ public class PhraseXController : ControllerBase
         return Ok(accounts);
     }
 
+    [HttpGet("admin/users")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetUsers()
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var users = await _db.Users
+            .OrderBy(u => u.Email)
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.DisplayName,
+                u.IsAdmin
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+    [HttpPost("admin/users")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateUser(CreateUserRequest request)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        var email = request.Email?.Trim().ToLowerInvariant() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(email)) return BadRequest(new { message = "Email is required." });
+        if (string.IsNullOrWhiteSpace(request.Password)) return BadRequest(new { message = "Password is required." });
+
+        if (await _db.Users.AnyAsync(u => u.Email == email))
+        {
+            return Conflict(new { message = "Email is already registered." });
+        }
+
+        var user = new AppUser { Email = email, DisplayName = request.DisplayName?.Trim() ?? string.Empty, IsAdmin = request.IsAdmin };
+        user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(user, request.Password);
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/admin/users/{user.Id}", new { user.Id, user.Email, user.DisplayName, user.IsAdmin });
+    }
+
+    [HttpPut("admin/users/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> UpdateUser(Guid id, UpdateUserRequest request)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "User not found." });
+
+        if (request.DisplayName is not null) user.DisplayName = request.DisplayName.Trim();
+        if (request.IsAdmin.HasValue) user.IsAdmin = request.IsAdmin.Value;
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new { user.Id, user.Email, user.DisplayName, user.IsAdmin });
+    }
+
+    [HttpDelete("admin/users/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteUser(Guid id)
+    {
+        var caller = await CurrentUser();
+        if (!caller.IsAdmin) return Forbid();
+
+        if (caller.Id == id) return BadRequest(new { message = "You cannot delete your own account." });
+
+        var user = await _db.Users.FindAsync(id);
+        if (user is null) return NotFound(new { message = "User not found." });
+
+        _db.Users.Remove(user);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpPost("admin/instagramaccounts")]
     [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<IActionResult> CreateInstagramAccount(InstagramAccountRequest request)
