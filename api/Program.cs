@@ -159,6 +159,8 @@ await using (var scope = app.Services.CreateAsyncScope())
         category text NOT NULL DEFAULT ''
     );");
 
+    await db.Database.ExecuteSqlRawAsync("ALTER TABLE scheduledposts\nADD COLUMN IF NOT EXISTS instagrammediaid TEXT NULL;");
+
     var shouldSave = false;
 
     if (!await db.SiteBrandings.AnyAsync())
