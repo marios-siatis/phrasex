@@ -137,7 +137,8 @@ async function checkAndPostOnce() {
       JOIN instagramaccounts ia
         ON ia.id = sp.instagramaccountid
       WHERE sp.posted = false
-        AND sp.scheduledat <= NOW()
+      AND sp.scheduledat <= NOW()
+      AND sp.scheduledat >= NOW() - INTERVAL '4 hours'
       ORDER BY sp.scheduledat ASC
       LIMIT 10
     `;
