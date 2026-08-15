@@ -130,6 +130,7 @@ function App() {
   const [saveModalQuote, setSaveModalQuote] = useState<Quote | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showCreateNew, setShowCreateNew] = useState(false);
   const [savedQuoteIds, setSavedQuoteIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule' | 'collections' | 'collection'>('home');
   const [selectedCollection, setSelectedCollection] = useState<CollectionDto | null>(null);
@@ -677,8 +678,8 @@ function App() {
                     >
                       {c.thumbnail ? <img src={c.thumbnail} alt={c.name} /> : <div className="collectionThumbPlaceholder">{c.name[0]}</div>}
                       <div className="collectionsModalMeta">
-                        <strong>{c.name}</strong>
-                        <span className="muted">{c.itemCount} items</span>
+                        <strong style={{ color: 'white' }}>{c.name}</strong>
+                        <span style={{ color: 'white' }} className="muted">{c.itemCount} items</span>
                       </div>
                       <div className="collectionsModalCheck">{isMember ? <Check /> : <Bookmark />}</div>
                     </button>
@@ -690,54 +691,71 @@ function App() {
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <label>
-                Create new collection
-                <input value={newCollectionName} onChange={(e) => setNewCollectionName(e.target.value)} />
-              </label>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button
-                  className="gold"
-                  onClick={async () => {
-                    if (!token || !newCollectionName.trim()) return;
-                    setSaving(true);
-                    try {
-                      const created = await request('/collections', token, {
-                        method: 'POST',
-                        body: JSON.stringify({ name: newCollectionName.trim() }),
-                      });
+              {!showCreateNew ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="createNewToggle"
+                    onClick={() => setShowCreateNew(true)}
+                    aria-label="Create new collection"
+                  >
+                    +
+                  </button>
+                  <span className="muted">Create a new collection</span>
+                </div>
+              ) : (
+                <>
+                  <label>
+                    Create new collection
+                    <input value={newCollectionName} onChange={(e) => setNewCollectionName(e.target.value)} />
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button
+                      className="gold"
+                      onClick={async () => {
+                        if (!token || !newCollectionName.trim()) return;
+                        setSaving(true);
+                        try {
+                          const created = await request('/collections', token, {
+                            method: 'POST',
+                            body: JSON.stringify({ name: newCollectionName.trim() }),
+                          });
 
-                      // refresh collections to ensure DB state and get id if serializer casing differs
-                      const refreshed = await request('/collections', token);
+                          // refresh collections to ensure DB state and get id if serializer casing differs
+                          const refreshed = await request('/collections', token);
 
-                      const createdId = created?.id ?? refreshed.find((x: any) => x.name === newCollectionName.trim())?.id;
+                          const createdId = created?.id ?? refreshed.find((x: any) => x.name === newCollectionName.trim())?.id;
 
-                      if (!createdId) {
-                        throw new Error('Could not determine created collection id.');
-                      }
+                          if (!createdId) {
+                            throw new Error('Could not determine created collection id.');
+                          }
 
-                      // add item to created collection
-                      await request(`/collections/${createdId}/items`, token, {
-                        method: 'POST',
-                        body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
-                      });
+                          // add item to created collection
+                          await request(`/collections/${createdId}/items`, token, {
+                            method: 'POST',
+                            body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                          });
 
-                      // refresh collections and close
-                      setCollections(await request('/collections', token));
-                      // mark as saved locally
-                      setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
-                      setSaveModalQuote(null);
-                      setNewCollectionName('');
-                    } catch (err) {
-                      setNotice((err as Error).message);
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                >
-                  Create & save
-                </button>
-                <button type="button" className="textButton" onClick={() => setSaveModalQuote(null)}>Cancel</button>
-              </div>
+                          // refresh collections and close
+                          setCollections(await request('/collections', token));
+                          // mark as saved locally
+                          setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
+                          setSaveModalQuote(null);
+                          setNewCollectionName('');
+                          setShowCreateNew(false);
+                        } catch (err) {
+                          setNotice((err as Error).message);
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      Create & save
+                    </button>
+                    <button type="button" className="textButton" onClick={() => setShowCreateNew(false)}>Cancel</button>
+                  </div>
+                </>
+              )}
             </div>
           </section>
         </div>

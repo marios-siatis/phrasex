@@ -360,6 +360,19 @@ nav {
   border-color: var(--accent-bright);
 }
 
+.createNewToggle {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .imageGrid img {
   width: 100%;
   height: 330px;
