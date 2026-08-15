@@ -413,6 +413,46 @@ resource "aws_iam_role" "task" {
 }
 
 # ---------------------------------------------------------
+# ECS Task S3 Permissions
+# ---------------------------------------------------------
+
+data "aws_iam_policy_document" "task_s3" {
+  statement {
+    sid    = "ListImagesBucket"
+    effect = "Allow"
+
+    actions = [
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      aws_s3_bucket.images.arn
+    ]
+  }
+
+  statement {
+    sid    = "ReadWriteImages"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.images.arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "task_s3" {
+  name   = "${local.name}-task-s3"
+  role   = aws_iam_role.task.id
+  policy = data.aws_iam_policy_document.task_s3.json
+}
+
+# ---------------------------------------------------------
 # Application Load Balancer
 # ---------------------------------------------------------
 
