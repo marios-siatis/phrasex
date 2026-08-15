@@ -98,7 +98,7 @@ resource "aws_lambda_function" "checker" {
         var.lambda_threshold_hours
       ),
       POLL_INTERVAL_SECONDS   = 10
-      RUN_ONCE                = false
+      RUN_ONCE                = true
       INSTAGRAM_GRAPH_VERSION = var.lambda_instagram_graph_version
     }
   }
