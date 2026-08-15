@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark, Check } from 'lucide-react';
+import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark, Check, Trash2 } from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -348,21 +348,21 @@ function App() {
           <div className="collectionsGrid">
             {collections.length ? (
               collections.map((c) => (
-                <button
-                  key={c.id}
-                  className="collectionCard"
-                  onClick={async () => {
-                    setView('collection');
-                    // load collection details
-                    try {
-                      const res = await request(`/collections/${c.id}`, token);
-                      setSelectedCollection(res.collection);
-                      setCollectionItems(res.items || []);
-                    } catch (err) {
-                      setNotice((err as Error).message);
-                    }
-                  }}
-                >
+                <div key={c.id} className="collectionCardWrapper">
+                  <button
+                    className="collectionCard"
+                    onClick={async () => {
+                      setView('collection');
+                      // load collection details
+                      try {
+                        const res = await request(`/collections/${c.id}`, token);
+                        setSelectedCollection(res.collection);
+                        setCollectionItems(res.items || []);
+                      } catch (err) {
+                        setNotice((err as Error).message);
+                      }
+                    }}
+                  >
                   {c.thumbnail ? (
                     <img src={c.thumbnail} alt={c.name} />
                   ) : (
@@ -373,7 +373,31 @@ function App() {
                     <div className="collectionTitle">{c.name}</div>
                     <div className="collectionCount">{c.itemCount} items</div>
                   </div>
-                </button>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="collectionDeleteButton"
+                    title="Delete collection"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Delete collection "${c.name}"? This cannot be undone.`)) return;
+                      try {
+                        await request(`/collections/${c.id}`, token, { method: 'DELETE' });
+                        setCollections((prev) => prev.filter((x) => x.id !== c.id));
+                        if (selectedCollection?.id === c.id) {
+                          setView('collections');
+                          setSelectedCollection(null);
+                          setCollectionItems([]);
+                        }
+                      } catch (err) {
+                        setNotice((err as Error).message);
+                      }
+                    }}
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
               ))
             ) : (
               <p className="empty">You have no collections yet. Save quotes to create one.</p>

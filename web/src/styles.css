@@ -267,6 +267,23 @@ nav {
   display: block;
 }
 
+.collectionCardWrapper { position: relative }
+
+.collectionDeleteButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .collectionPlaceholder {
   width: 100%;
   height: 100%;

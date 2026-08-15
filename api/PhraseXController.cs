@@ -1194,6 +1194,25 @@ public class PhraseXController : ControllerBase
         return Ok(new { collection = new CollectionDto(collection.Id, collection.Name, collection.CreatedAt, collection.QuoteImages.Count), items });
     }
 
+    [HttpDelete("collections/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteCollection(Guid id)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        // Remove relationship entries are handled by EF for many-to-many
+        _db.Collections.Remove(collection);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpPost("collections/{id:guid}/items")]
     [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<IActionResult> AddToCollection(Guid id, AddToCollectionRequest request)
