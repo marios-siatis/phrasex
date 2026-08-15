@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark } from 'lucide-react';
+import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark, Check } from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -121,7 +121,7 @@ function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
   const [branding, setBranding] = useState<Branding | null>(null);
-  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule'>('home');
+  
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
@@ -129,6 +129,10 @@ function App() {
   const [saveModalQuote, setSaveModalQuote] = useState<Quote | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [savedQuoteIds, setSavedQuoteIds] = useState<Set<string>>(new Set());
+  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule' | 'collections' | 'collection'>('home');
+  const [selectedCollection, setSelectedCollection] = useState<CollectionDto | null>(null);
+  const [collectionItems, setCollectionItems] = useState<Quote[]>([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [selectedQuoteCategories, setSelectedQuoteCategories] = useState<string[]>([]);
 
@@ -147,6 +151,7 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
+
     request('/profile', token)
       .then(setUser)
       .catch(() => {
@@ -154,8 +159,31 @@ function App() {
         setToken('');
       });
 
-    // load user collections
-    request('/collections', token).then(setCollections).catch(() => setCollections([]));
+    // load user collections and saved ids
+    const loadCollectionsAndSaved = async () => {
+      try {
+        const cols: CollectionDto[] = await request('/collections', token);
+        setCollections(cols);
+
+        // fetch items for each collection to build saved IDs set
+        const details = await Promise.all(
+          cols.map((c) => request(`/collections/${c.id}`, token).catch(() => null))
+        );
+
+        const ids = new Set<string>();
+        for (const d of details) {
+          if (d?.items) {
+            for (const it of d.items) ids.add(it.id);
+          }
+        }
+        setSavedQuoteIds(ids);
+      } catch (err) {
+        setCollections([]);
+        setSavedQuoteIds(new Set());
+      }
+    };
+
+    loadCollectionsAndSaved();
   }, [token]);
 
   useEffect(() => {
@@ -274,6 +302,9 @@ function App() {
                 >
                   <UserRound size={16} /> Profile
                 </button>
+                <button type="button" onClick={() => { setView('collections'); setProfileMenuOpen(false); }}>
+                  <Bookmark size={16} /> Collections
+                </button>
                 <button type="button" onClick={signOut}>
                   <LogOut size={16} /> Log out
                 </button>
@@ -294,6 +325,82 @@ function App() {
 
       {view === 'profile' && user && (
         <Profile user={user} categories={categories} token={token} save={setUser} />
+      )}
+
+      {view === 'collections' && (
+        <section className="page">
+          <p className="eyebrow">YOUR COLLECTIONS</p>
+          <h1>Your collections</h1>
+          <div className="collectionsGrid">
+            {collections.length ? (
+              collections.map((c) => (
+                <button
+                  key={c.id}
+                  className="collectionCard"
+                  onClick={async () => {
+                    setView('collection');
+                    // load collection details
+                    try {
+                      const res = await request(`/collections/${c.id}`, token);
+                      setSelectedCollection(res.collection);
+                      setCollectionItems(res.items || []);
+                    } catch (err) {
+                      setNotice((err as Error).message);
+                    }
+                  }}
+                >
+                  <strong>{c.name}</strong>
+                  <span className="muted">{c.itemCount} items</span>
+                </button>
+              ))
+            ) : (
+              <p className="empty">You have no collections yet. Save quotes to create one.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {view === 'collection' && selectedCollection && (
+        <section className="page">
+          <p className="eyebrow">COLLECTION</p>
+          <h1>{selectedCollection.name}</h1>
+          <button className="textButton" onClick={() => { setView('collections'); setSelectedCollection(null); setCollectionItems([]); }}>
+            Back to collections
+          </button>
+
+          <div className="quoteGrid" style={{ marginTop: 20 }}>
+            {collectionItems.map((q) => (
+              <div key={q.id} className="quotePinWrapper">
+                <button
+                  type="button"
+                  className="quotePin"
+                  onClick={() => setQuotePreview(q)}
+                  aria-label={`Preview quote: ${q.quote}`}
+                >
+                  <img src={getImageUrl(q.finalImageUrl)} alt={q.quote} />
+                  <span className="quotePinDetails">
+                    <strong>“{q.quote}”</strong>
+                    <span>— {q.author}</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className="saveCollectionButton"
+                  title="Save to collection"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSaveModalQuote(q);
+                  }}
+                >
+                  {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
+                </button>
+              </div>
+            ))}
+
+            {!collectionItems.length && <p className="empty">No quotes in this collection.</p>}
+          </div>
+        </section>
       )}
 
       {view === 'admin' && user?.isAdmin && (
@@ -421,7 +528,7 @@ function App() {
                           setSaveModalQuote(q);
                         }}
                       >
-                        <Bookmark />
+                          {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
                       </button>
                     </div>
                   ))}
@@ -501,7 +608,7 @@ function App() {
             <div className="collectionsList">
               {collections.length ? (
                 collections.map((c) => (
-                  <button
+                      <button
                     key={c.id}
                     type="button"
                     onClick={async () => {
@@ -514,6 +621,8 @@ function App() {
                         });
                         // refresh collections after adding
                         setCollections(await request('/collections', token));
+                        // mark as saved locally
+                        setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
                         setSaveModalQuote(null);
                       } catch (err) {
                         setNotice((err as Error).message);
@@ -564,6 +673,8 @@ function App() {
 
                       // refresh collections and close
                       setCollections(await request('/collections', token));
+                      // mark as saved locally
+                      setSavedQuoteIds((s) => new Set(Array.from(s).concat([saveModalQuote.id])));
                       setSaveModalQuote(null);
                       setNewCollectionName('');
                     } catch (err) {
