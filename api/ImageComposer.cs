@@ -28,7 +28,8 @@ public class ImageComposer(
         if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) ||
             uri.Host is not "images.pexels.com")
         {
-            throw new ArgumentException("Please select an image returned by Pexels.");
+            throw new ArgumentException(
+                "Please select an image returned by Pexels.");
         }
 
         var bytes = await http.GetByteArrayAsync(uri, ct);
@@ -131,36 +132,6 @@ public class ImageComposer(
         };
 
         // ---------------------------------------------------------
-        // Blurred dark background behind quote
-        // ---------------------------------------------------------
-
-        using var textGlow = new Image<Rgba32>(
-            image.Width,
-            image.Height,
-            Color.Transparent);
-
-        textGlow.Mutate(ctx =>
-        {
-            // Large soft dark area behind the text.
-            ctx.Fill(
-                Color.FromRgba(0, 0, 0, 110),
-                new Rectangle(
-                    70,
-                    390,
-                    image.Width - 140,
-                    500));
-
-            // Blur the edges so it feels atmospheric rather than
-            // looking like a hard black rectangle.
-            ctx.GaussianBlur(68);
-        });
-
-        image.Mutate(ctx =>
-        {
-            ctx.DrawImage(textGlow, Point.Empty, 1f);
-        });
-
-        // ---------------------------------------------------------
         // Logo
         // ---------------------------------------------------------
 
@@ -199,6 +170,66 @@ public class ImageComposer(
         var logoPosition = new Point(
             (image.Width - logoWidth) / 2,
             image.Height - logoHeight - 60);
+
+        // ---------------------------------------------------------
+        // SEPARATE BLURRED BACKGROUND BEHIND QUOTE
+        // ---------------------------------------------------------
+
+        using var quoteGlow = new Image<Rgba32>(
+            image.Width,
+            image.Height,
+            Color.Transparent);
+
+        quoteGlow.Mutate(ctx =>
+        {
+            ctx.Fill(
+                Color.FromRgba(0, 0, 0, 110),
+                new Rectangle(
+                    70,
+                    390,
+                    image.Width - 140,
+                    430));
+
+            ctx.GaussianBlur(68);
+        });
+
+        image.Mutate(ctx =>
+        {
+            ctx.DrawImage(
+                quoteGlow,
+                Point.Empty,
+                1f);
+        });
+
+        // ---------------------------------------------------------
+        // SEPARATE BLURRED BACKGROUND BEHIND LOGO
+        // ---------------------------------------------------------
+
+        using var logoGlow = new Image<Rgba32>(
+            image.Width,
+            image.Height,
+            Color.Transparent);
+
+        logoGlow.Mutate(ctx =>
+        {
+            ctx.Fill(
+                Color.FromRgba(0, 0, 0, 110),
+                new Rectangle(
+                    280,
+                    image.Height - 360,
+                    image.Width - 560,
+                    220));
+
+            ctx.GaussianBlur(68);
+        });
+
+        image.Mutate(ctx =>
+        {
+            ctx.DrawImage(
+                logoGlow,
+                Point.Empty,
+                1f);
+        });
 
         // ---------------------------------------------------------
         // Render quote, author and logo
@@ -264,7 +295,9 @@ public class ImageComposer(
         Directory.CreateDirectory(local);
 
         await File.WriteAllBytesAsync(
-            Path.Combine(local, Path.GetFileName(key)),
+            Path.Combine(
+                local,
+                Path.GetFileName(key)),
             output.ToArray(),
             ct);
 
@@ -280,9 +313,8 @@ public class ImageComposer(
 
         var cleaned = text.Trim();
 
-        // Remove existing double quotation marks from the
-        // beginning/end so we don't produce:
-        // “"Hello"”
+        // Remove existing quotation marks from the beginning/end
+        // so we don't produce “"Hello"”.
         cleaned = cleaned.Trim(
             '"',
             '“',
