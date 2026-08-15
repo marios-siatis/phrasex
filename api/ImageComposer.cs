@@ -202,7 +202,7 @@ public class ImageComposer(
         });
 
         // ---------------------------------------------------------
-        // SEPARATE BLURRED BACKGROUND BEHIND LOGO
+        // SEPARATE NARROW HALO BEHIND LOGO
         // ---------------------------------------------------------
 
         using var logoGlow = new Image<Rgba32>(
@@ -212,14 +212,17 @@ public class ImageComposer(
 
         logoGlow.Mutate(ctx =>
         {
+            // Narrower horizontal area so this reads as a
+            // subtle halo around the logo rather than a dark strip.
             ctx.Fill(
                 Color.FromRgba(0, 0, 0, 110),
                 new Rectangle(
-                    280,
-                    image.Height - 360,
-                    image.Width - 560,
-                    220));
+                    410,
+                    image.Height - 330,
+                    260,
+                    180));
 
+            // Same softness as the quote glow.
             ctx.GaussianBlur(68);
         });
 
