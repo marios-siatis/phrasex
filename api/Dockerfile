@@ -31,7 +31,6 @@ RUN fc-cache -f -v
 COPY --from=build /app/publish .
 
 ENV ASPNETCORE_URLS=http://+:8080
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 EXPOSE 8080
 
