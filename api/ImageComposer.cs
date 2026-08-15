@@ -14,7 +14,7 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
 {
     private readonly IWebHostEnvironment _environment = environment;
 
-    public async Task<string> ComposeAndStore(string imageUrl, string quote, string? logoName, CancellationToken ct)
+    public async Task<string> ComposeAndStore(string imageUrl, string quote, string? logoName,string authorText, CancellationToken ct)
     {
         if (!Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri) || uri.Host is not "images.pexels.com")
         {
@@ -98,9 +98,19 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
 
         var logoPosition = new Point((image.Width - logoWidth) / 2, image.Height - logoHeight - 60);
 
+        var authorOptions = new RichTextOptions(quoteFont)
+        {
+            Origin = new PointF(540, 720),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            WrappingLength = 860,
+            TextAlignment = TextAlignment.Center
+        };
+
         image.Mutate(c =>
         {
             c.DrawText(quoteOptions, quote, Color.White);
+            c.DrawText(authorOptions, authorText, Color.White);
             c.DrawImage(logo, logoPosition, 1f);
         });
 

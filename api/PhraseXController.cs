@@ -262,6 +262,7 @@ public class PhraseXController : ControllerBase
             request.ImageUrl,
             quoteText,
             logoName,
+            authorText,
             cancellationToken);
 
         var quote = new QuoteImage
