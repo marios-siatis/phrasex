@@ -7,6 +7,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY index.js .
+COPY global-bundle.pem .
 
 ENV NODE_ENV=production
 

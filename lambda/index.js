@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const { Pool } = require('pg');
+const fs = require("fs");
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const THRESHOLD_HOURS = Number(process.env.THRESHOLD_HOURS || '0');
@@ -14,7 +15,13 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: DATABASE_URL,rejectUnauthorized: false });
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    ca: fs.readFileSync("/var/task/global-bundle.pem"),
+    rejectUnauthorized: true
+  }
+});
 
 async function postToInstagram(igUserId, accessToken, imageUrl, caption) {
   if (!igUserId) throw new Error('Missing Instagram user ID');
