@@ -30,6 +30,12 @@ RUN fc-cache -f -v
 
 COPY --from=build /app/publish .
 
+
+RUN mkdir -p /app/logos
+
+COPY logos ./logos
+
+
 ENV ASPNETCORE_URLS=http://+:8080
 
 EXPOSE 8080
