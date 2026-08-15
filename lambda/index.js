@@ -14,7 +14,7 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: DATABASE_URL });
+const pool = new Pool({ connectionString: DATABASE_URL,rejectUnauthorized: false });
 
 async function postToInstagram(igUserId, accessToken, imageUrl, caption) {
   if (!igUserId) throw new Error('Missing Instagram user ID');
