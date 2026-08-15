@@ -1133,13 +1133,18 @@ public class PhraseXController : ControllerBase
     {
         var user = await CurrentUser();
 
+        // Load collections and their related QuoteImages, then map to DTOs in memory
         var cols = await _db.Collections
             .Where(c => c.CreatedById == user.Id)
-            .Select(c => new CollectionDto(c.Id, c.Name, c.CreatedAt, c.QuoteImages.Count))
+            .Include(c => c.QuoteImages)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
-        return Ok(cols);
+        var dto = cols
+            .Select(c => new CollectionDto(c.Id, c.Name, c.CreatedAt, c.QuoteImages?.Count ?? 0))
+            .ToList();
+
+        return Ok(dto);
     }
 
     [HttpPost("collections")]

@@ -512,9 +512,9 @@ function App() {
                           method: 'POST',
                           body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
                         });
-                        setSaveModalQuote(null);
-                        // refresh collections
+                        // refresh collections after adding
                         setCollections(await request('/collections', token));
+                        setSaveModalQuote(null);
                       } catch (err) {
                         setNotice((err as Error).message);
                       } finally {
@@ -546,14 +546,26 @@ function App() {
                         method: 'POST',
                         body: JSON.stringify({ name: newCollectionName.trim() }),
                       });
+
+                      // refresh collections to ensure DB state and get id if serializer casing differs
+                      const refreshed = await request('/collections', token);
+
+                      const createdId = created?.id ?? refreshed.find((x: any) => x.name === newCollectionName.trim())?.id;
+
+                      if (!createdId) {
+                        throw new Error('Could not determine created collection id.');
+                      }
+
                       // add item to created collection
-                      await request(`/collections/${created.id}/items`, token, {
+                      await request(`/collections/${createdId}/items`, token, {
                         method: 'POST',
                         body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
                       });
+
+                      // refresh collections and close
+                      setCollections(await request('/collections', token));
                       setSaveModalQuote(null);
                       setNewCollectionName('');
-                      setCollections(await request('/collections', token));
                     } catch (err) {
                       setNotice((err as Error).message);
                     } finally {

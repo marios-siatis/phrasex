@@ -94,7 +94,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<QuoteImage>()
             .HasMany(q => q.Collections)
             .WithMany(c => c.QuoteImages)
-            .UsingEntity(join => join.ToTable("collectionquoteimages"));
+            .UsingEntity<Dictionary<string, object>>(
+                "collectionquoteimages",
+                r => r.HasOne<Collection>().WithMany().HasForeignKey("collectionsid"),
+                l => l.HasOne<QuoteImage>().WithMany().HasForeignKey("quoteimagesid"),
+                je => je.ToTable("collectionquoteimages")
+            );
     }
 }
 public class Category
