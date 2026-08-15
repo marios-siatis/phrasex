@@ -45,11 +45,3 @@ docker compose up --build
 The compose file starts Postgres with a minimal schema and seeds a sample scheduled post. The `scheduler` container will poll and attempt to post using the `INSTAGRAM` tokens in the seeded DB (placeholders by default).
 
 To run in AWS you'll need to build and push the Lambda container image to ECR and then apply Terraform. Terraform creates an ECR repo for the checker; build and push to the repo output `lambda_checker_ecr: <repo>` as `:latest`.
-
-TODO:
-
-Split into separate UI files 
-GIve me the list of similar quotes and force create
-Fix create view to look nicer
-HastTags Column in quotes in create quote and in config like for example (phrasex, apofthegmata, apofthagmata_zwhs) they are must have to 
-create collections of my quotes 

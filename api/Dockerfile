@@ -14,27 +14,19 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 
 WORKDIR /app
 
-# Install fontconfig and basic fonts
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-    fontconfig \
-    fonts-dejavu \
-    fonts-liberation \
-    wget \
-    unzip \
+        fontconfig \
+        fonts-dejavu \
+        fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Bodoni Moda
-RUN mkdir -p /usr/local/share/fonts/bodoni-moda \
-    && wget -q https://fonts.google.com/download?family=Bodoni%20Moda \
-    -O /tmp/bodoni-moda.zip \
-    && unzip -q /tmp/bodoni-moda.zip \
-    -d /usr/local/share/fonts/bodoni-moda \
-    && find /usr/local/share/fonts/bodoni-moda -type f \
-    \( -name "*.ttf" -o -name "*.otf" \) \
-    -exec cp {} /usr/local/share/fonts/bodoni-moda/ \; \
-    && rm -rf /tmp/bodoni-moda.zip \
-    && fc-cache -f -v
+# Install PhraseX fonts
+RUN mkdir -p /usr/local/share/fonts/phrasex
+
+COPY Fonts/*.ttf /usr/local/share/fonts/phrasex/
+
+RUN fc-cache -f -v
 
 COPY --from=build /app/publish .
 
