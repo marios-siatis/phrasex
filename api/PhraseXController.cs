@@ -1156,6 +1156,33 @@ public class PhraseXController : ControllerBase
         return Ok(quotes);
     }
 
+    [HttpDelete("admin/quotes/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> DeleteQuote(Guid id)
+    {
+        var user = await CurrentUser();
+        if (!user.IsAdmin) return Forbid();
+
+        var quote = await _db.QuoteImages
+            .Include(q => q.Collections)
+            .Include(q => q.ScheduledPosts)
+            .SingleOrDefaultAsync(q => q.Id == id);
+
+        if (quote is null) return NotFound(new { message = "Quote not found." });
+
+        // Remove scheduled posts explicitly if any
+        if (quote.ScheduledPosts?.Any() == true)
+        {
+            _db.ScheduledPosts.RemoveRange(quote.ScheduledPosts);
+        }
+
+        // Many-to-many relationships will be handled by EF when the entity is removed
+        _db.QuoteImages.Remove(quote);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     // ==========================================
     // Collections (user-owned)
     // ==========================================

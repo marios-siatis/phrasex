@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ToastProvider } from './toast';
 import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark, Check, Trash2 } from 'lucide-react';
 import './styles.css';
+import AdminManageQuotes from './AdminManageQuotes';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_BASE = API.replace(/\/api\/?$/, '');
@@ -132,7 +134,7 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [savedQuoteIds, setSavedQuoteIds] = useState<Set<string>>(new Set());
-  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule' | 'collections' | 'collection'>('home');
+  const [view, setView] = useState<'home' | 'profile' | 'admin' | 'branding' | 'upload' | 'schedule' | 'collections' | 'collection' | 'manageQuotes'>('home');
   const [selectedCollection, setSelectedCollection] = useState<CollectionDto | null>(null);
   const [collectionItems, setCollectionItems] = useState<Quote[]>([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -278,6 +280,9 @@ function App() {
             <>
               <button className="adminLink" onClick={() => setView('admin')}>
                 Create
+              </button>
+              <button className="adminLink" onClick={() => setView('manageQuotes')}>
+                Manage quotes
               </button>
               <button className="adminLink" onClick={() => setView('schedule')}>
                 Schedule
@@ -461,6 +466,10 @@ function App() {
             setNotice('Your branded quote image is ready.');
           }}
         />
+      )}
+
+      {view === 'manageQuotes' && user?.isAdmin && (
+        <AdminManageQuotes token={token} />
       )}
 
       {view === 'branding' && user?.isAdmin && (
@@ -2508,4 +2517,8 @@ function BrandingPage({
   );
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(
+  <ToastProvider>
+    <App />
+  </ToastProvider>
+);
