@@ -65,6 +65,7 @@ type Quote = {
 };
 
 type CollectionDto = { id: string; name: string; createdAt: string; itemCount: number };
+type CollectionCard = CollectionDto & { thumbnail?: string };
 
 type AdminQuoteImage = {
   id: string;
@@ -125,7 +126,7 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
-  const [collections, setCollections] = useState<CollectionDto[]>([]);
+  const [collections, setCollections] = useState<CollectionCard[]>([]);
   const [saveModalQuote, setSaveModalQuote] = useState<Quote | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -163,19 +164,27 @@ function App() {
     const loadCollectionsAndSaved = async () => {
       try {
         const cols: CollectionDto[] = await request('/collections', token);
-        setCollections(cols);
 
-        // fetch items for each collection to build saved IDs set
+        // fetch items for each collection to build saved IDs set and pick a thumbnail
         const details = await Promise.all(
           cols.map((c) => request(`/collections/${c.id}`, token).catch(() => null))
         );
 
         const ids = new Set<string>();
-        for (const d of details) {
+        const cards: CollectionCard[] = cols.map((c, idx) => {
+          const d = details[idx];
           if (d?.items) {
             for (const it of d.items) ids.add(it.id);
           }
-        }
+
+          const first = d?.items && d.items.length ? d.items[0] : null;
+          return {
+            ...c,
+            thumbnail: first ? getImageUrl(first.finalImageUrl) : undefined,
+          };
+        });
+
+        setCollections(cards);
         setSavedQuoteIds(ids);
       } catch (err) {
         setCollections([]);
@@ -352,8 +361,16 @@ function App() {
                     }
                   }}
                 >
-                  <strong>{c.name}</strong>
-                  <span className="muted">{c.itemCount} items</span>
+                  {c.thumbnail ? (
+                    <img src={c.thumbnail} alt={c.name} />
+                  ) : (
+                    <div className="collectionPlaceholder">{c.name[0]}</div>
+                  )}
+
+                  <div className="collectionOverlay">
+                    <div className="collectionTitle">{c.name}</div>
+                    <div className="collectionCount">{c.itemCount} items</div>
+                  </div>
                 </button>
               ))
             ) : (

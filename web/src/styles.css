@@ -243,34 +243,62 @@ nav {
 }
 
 .sectionHead {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.collectionCard {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  height: 180px;
+  display: block;
+  text-align: left;
+}
+
+.collectionCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.collectionPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  color: var(--muted);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.04));
+}
+
+.collectionOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+  color: var(--text);
   display: flex;
   justify-content: space-between;
   align-items: end;
-  margin-bottom: 25px;
 }
 
-.sectionHead h2 {
-  font: 700 35px 'Playfair Display';
-  margin: 0;
-  color: var(--text);
+.collectionTitle {
+  font-weight: 700;
+  font-size: 16px;
 }
 
-.sectionHead>span {
+.collectionCount {
   color: var(--muted);
-  font-size: 14px;
-}
-
-.imageGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-figure {
-  margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  overflow: hidden;
+  font-size: 13px;
 }
 
 .imageGrid img {
