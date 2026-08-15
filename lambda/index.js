@@ -12,12 +12,10 @@ if (!DATABASE_URL) {
 }
 
 const pool = new Pool({
-  connectionString: DATABASE_URL,
-
+  connectionString: DATABASE_URL.replace(/[?&]sslmode=[^&]*/i, ''),
   ssl: {
     rejectUnauthorized: false
   },
-
   connectionTimeoutMillis: 10000,
   query_timeout: 15000,
   max: 2

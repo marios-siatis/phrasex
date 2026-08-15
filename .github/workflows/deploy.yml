@@ -24,7 +24,6 @@ jobs:
     environment: production
 
     steps:
-
       # ---------------------------------------------------
       # Checkout
       # ---------------------------------------------------
@@ -173,11 +172,25 @@ jobs:
           set -euo pipefail
 
           docker build \
+            --no-cache \
             -t "$IMAGE_URI:latest" \
             .
 
           docker push "$IMAGE_URI:latest"
 
+      - name: Update Lambda checker
+        env:
+          IMAGE_URI: ${{ steps.ecr.outputs.registry }}/phrasex-prod-lambda-checker
+        run: |
+          set -euo pipefail
+
+          aws lambda update-function-code \
+            --function-name phrasex-prod-checker \
+            --image-uri "$IMAGE_URI:latest" \
+            --publish
+
+          aws lambda wait function-updated \
+            --function-name phrasex-prod-checker
       # ---------------------------------------------------
       # Verify Lambda image
       # ---------------------------------------------------
