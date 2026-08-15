@@ -121,7 +121,7 @@ function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [logos, setLogos] = useState<Logo[]>([]);
   const [branding, setBranding] = useState<Branding | null>(null);
-  
+
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
@@ -257,6 +257,12 @@ function App() {
         </form>
 
         <nav>
+          <button className="adminLink" onClick={() => {
+            setView('collections');
+            setProfileMenuOpen(false);
+          }}>
+            My Collections
+          </button>
           {user?.isAdmin && (
             <>
               <button className="adminLink" onClick={() => setView('admin')}>
@@ -301,9 +307,6 @@ function App() {
                   }}
                 >
                   <UserRound size={16} /> Profile
-                </button>
-                <button type="button" onClick={() => { setView('collections'); setProfileMenuOpen(false); }}>
-                  <Bookmark size={16} /> Collections
                 </button>
                 <button type="button" onClick={signOut}>
                   <LogOut size={16} /> Log out
@@ -528,7 +531,7 @@ function App() {
                           setSaveModalQuote(q);
                         }}
                       >
-                          {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
+                        {savedQuoteIds.has(q.id) ? <Check /> : <Bookmark />}
                       </button>
                     </div>
                   ))}
@@ -608,7 +611,7 @@ function App() {
             <div className="collectionsList">
               {collections.length ? (
                 collections.map((c) => (
-                      <button
+                  <button
                     key={c.id}
                     type="button"
                     onClick={async () => {
