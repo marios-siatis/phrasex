@@ -31,6 +31,7 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
 
         var preferredFonts = new[]
         {
+            "Bodoni Moda",
             "Roboto",
             "Inter",
             "Noto Sans",
@@ -62,7 +63,12 @@ public class ImageComposer(HttpClient http, IConfiguration configuration, IAmazo
             throw new InvalidOperationException("No system font is available for rendering.");
         }
 
-        var quoteFont = font.CreateFont(58, FontStyle.Bold);
+        var quoteFont = SystemFonts.CreateFont(
+            font.Name,
+            58,
+            FontStyle.Bold
+        );
+
         var quoteOptions = new RichTextOptions(quoteFont)
         {
             Origin = new PointF(540, 620),
