@@ -852,7 +852,7 @@ function Studio({
         </div>
 
         <aside>
-          <form style={{ marginTop:0 }} className="search studioSearch" onSubmit={search}>
+          <form style={{ marginTop: 0 }} className="search studioSearch" onSubmit={search}>
             <Search size={18} />
             <input
               value={query}
@@ -1652,7 +1652,7 @@ function SchedulePage({ token }: { token: string }) {
                     >
                       {quote.finalImageUrl && (
                         <img
-                          src={`${import.meta.env.VITE_IMAGE_URL}${quote.finalImageUrl}`}
+                          src={`${import.meta.env.VITE_IMAGE_URL ?? ""}${quote.finalImageUrl}`}
                           alt={quote.quote}
                         />
                       )}
@@ -1760,7 +1760,7 @@ function SchedulePage({ token }: { token: string }) {
                                   aria-label={`Preview quote: ${post.quoteImage.quote}`}
                                 >
                                   <img
-                                    src={`${import.meta.env.VITE_IMAGE_URL}${post.quoteImage.finalImageUrl}`}
+                                    src={`${import.meta.env.VITE_IMAGE_URL ?? ""}${post.quoteImage.finalImageUrl}`}
                                     alt=""
                                   />
                                 </button>
@@ -1950,7 +1950,7 @@ function SchedulePage({ token }: { token: string }) {
             <h2 id="quote-preview-title">Quote preview</h2>
             <img
               className="quotePreviewImage"
-              src={`${import.meta.env.VITE_IMAGE_URL}${previewQuote.finalImageUrl}`}
+              src={`${import.meta.env.VITE_IMAGE_URL ?? ""}${previewQuote.finalImageUrl}`}
               alt={previewQuote.quote}
             />
             <p className="small">
