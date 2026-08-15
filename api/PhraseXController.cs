@@ -1124,6 +1124,117 @@ public class PhraseXController : ControllerBase
     }
 
     // ==========================================
+    // Collections (user-owned)
+    // ==========================================
+
+    [HttpGet("collections")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetCollections()
+    {
+        var user = await CurrentUser();
+
+        var cols = await _db.Collections
+            .Where(c => c.CreatedById == user.Id)
+            .Select(c => new CollectionDto(c.Id, c.Name, c.CreatedAt, c.QuoteImages.Count))
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        return Ok(cols);
+    }
+
+    [HttpPost("collections")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> CreateCollection(CreateCollectionRequest request)
+    {
+        var user = await CurrentUser();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(new { message = "Collection name is required." });
+        }
+
+        var collection = new Collection
+        {
+            Name = request.Name.Trim(),
+            CreatedById = user.Id,
+            CreatedBy = user
+        };
+
+        _db.Collections.Add(collection);
+        await _db.SaveChangesAsync();
+
+        return Created($"/api/collections/{collection.Id}", new CollectionDto(collection.Id, collection.Name, collection.CreatedAt, collection.QuoteImages.Count));
+    }
+
+    [HttpGet("collections/{id:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> GetCollection(Guid id)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .ThenInclude(q => q.Tags)
+            .Include(c => c.QuoteImages)
+            .ThenInclude(q => q.CreatedBy)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var items = collection.QuoteImages
+            .OrderByDescending(q => q.CreatedAt)
+            .Select(q => new QuoteImageDto(q.Id, q.Quote, q.Author, q.Category, q.FinalImageUrl))
+            .ToList();
+
+        return Ok(new { collection = new CollectionDto(collection.Id, collection.Name, collection.CreatedAt, collection.QuoteImages.Count), items });
+    }
+
+    [HttpPost("collections/{id:guid}/items")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> AddToCollection(Guid id, AddToCollectionRequest request)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var quote = await _db.QuoteImages.FindAsync(request.QuoteImageId);
+        if (quote is null) return NotFound(new { message = "Quote not found." });
+
+        if (!collection.QuoteImages.Any(q => q.Id == quote.Id))
+        {
+            collection.QuoteImages.Add(quote);
+            await _db.SaveChangesAsync();
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete("collections/{id:guid}/items/{quoteId:guid}")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    public async Task<IActionResult> RemoveFromCollection(Guid id, Guid quoteId)
+    {
+        var user = await CurrentUser();
+
+        var collection = await _db.Collections
+            .Include(c => c.QuoteImages)
+            .SingleOrDefaultAsync(c => c.Id == id && c.CreatedById == user.Id);
+
+        if (collection is null) return NotFound(new { message = "Collection not found." });
+
+        var existing = collection.QuoteImages.FirstOrDefault(q => q.Id == quoteId);
+        if (existing is null) return NotFound(new { message = "Item not found in collection." });
+
+        collection.QuoteImages.Remove(existing);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    // ==========================================
     // Helpers
     // ==========================================
 

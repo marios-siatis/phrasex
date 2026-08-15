@@ -159,6 +159,20 @@ await using (var scope = app.Services.CreateAsyncScope())
         category text NOT NULL DEFAULT ''
     );");
 
+    // Collections created for user-saved quote groupings
+    await db.Database.ExecuteSqlRawAsync(@"
+    CREATE TABLE IF NOT EXISTS public.collections (
+        id uuid PRIMARY KEY,
+        name text NOT NULL DEFAULT '',
+        createdat timestamp without time zone NOT NULL DEFAULT now(),
+        createdbyid uuid NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS public.collectionquoteimages (
+        quoteimagesid uuid NOT NULL,
+        collectionsid uuid NOT NULL,
+        PRIMARY KEY (quoteimagesid, collectionsid)
+    );");
+
     await db.Database.ExecuteSqlRawAsync("ALTER TABLE scheduledposts\nADD COLUMN IF NOT EXISTS instagrammediaid TEXT NULL;");
 
     var shouldSave = false;

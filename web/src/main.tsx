@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Heart, LogOut, Search, Sparkles, UserRound, X } from 'lucide-react';
+import { Heart, LogOut, Search, Sparkles, UserRound, X, Bookmark } from 'lucide-react';
 import './styles.css';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -64,6 +64,8 @@ type Quote = {
   category?: string;
 };
 
+type CollectionDto = { id: string; name: string; createdAt: string; itemCount: number };
+
 type AdminQuoteImage = {
   id: string;
   quote: string;
@@ -123,6 +125,10 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [quotePreview, setQuotePreview] = useState<Quote | null>(null);
+  const [collections, setCollections] = useState<CollectionDto[]>([]);
+  const [saveModalQuote, setSaveModalQuote] = useState<Quote | null>(null);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [saving, setSaving] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [selectedQuoteCategories, setSelectedQuoteCategories] = useState<string[]>([]);
 
@@ -141,13 +147,15 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-
     request('/profile', token)
       .then(setUser)
       .catch(() => {
         localStorage.removeItem('px_token');
         setToken('');
       });
+
+    // load user collections
+    request('/collections', token).then(setCollections).catch(() => setCollections([]));
   }, [token]);
 
   useEffect(() => {
@@ -387,22 +395,35 @@ function App() {
 
                 <div className="quoteGrid">
                   {visibleQuotes.map((q) => (
-                    <button
-                      type="button"
-                      className="quotePin"
-                      key={q.id}
-                      onClick={() => setQuotePreview(q)}
-                      aria-label={`Preview quote: ${q.quote}`}
-                    >
-                      <img
-                        src={getImageUrl(q.finalImageUrl)}
-                        alt={q.quote}
-                      />
-                      <span className="quotePinDetails">
-                        <strong>“{q.quote}”</strong>
-                        <span>— {q.author}</span>
-                      </span>
-                    </button>
+                    <div key={q.id} className="quotePinWrapper">
+                      <button
+                        type="button"
+                        className="quotePin"
+                        onClick={() => setQuotePreview(q)}
+                        aria-label={`Preview quote: ${q.quote}`}
+                      >
+                        <img
+                          src={getImageUrl(q.finalImageUrl)}
+                          alt={q.quote}
+                        />
+                        <span className="quotePinDetails">
+                          <strong>“{q.quote}”</strong>
+                          <span>— {q.author}</span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="saveCollectionButton"
+                        title="Save to collection"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSaveModalQuote(q);
+                        }}
+                      >
+                        <Bookmark />
+                      </button>
+                    </div>
                   ))}
                   {!visibleQuotes.length && (
                     <p className="empty">
@@ -448,6 +469,103 @@ function App() {
             <p className="small">
               “{quotePreview.quote}” — {quotePreview.author}
             </p>
+          </section>
+        </div>
+      )}
+
+      {saveModalQuote && (
+        <div
+          className="modal"
+          role="presentation"
+          onMouseDown={() => setSaveModalQuote(null)}
+        >
+          <section
+            className="dialog saveCollectionDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-quote-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="scheduleDialogClose"
+              onClick={() => setSaveModalQuote(null)}
+              aria-label="Close save dialog"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 id="save-quote-title">Save quote</h2>
+            <p className="small">“{saveModalQuote.quote}” — {saveModalQuote.author}</p>
+
+            <div className="collectionsList">
+              {collections.length ? (
+                collections.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={async () => {
+                      if (!token) return;
+                      setSaving(true);
+                      try {
+                        await request(`/collections/${c.id}/items`, token, {
+                          method: 'POST',
+                          body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                        });
+                        setSaveModalQuote(null);
+                        // refresh collections
+                        setCollections(await request('/collections', token));
+                      } catch (err) {
+                        setNotice((err as Error).message);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    {c.name} ({c.itemCount})
+                  </button>
+                ))
+              ) : (
+                <p className="empty">You have no collections yet.</p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              <label>
+                Create new collection
+                <input value={newCollectionName} onChange={(e) => setNewCollectionName(e.target.value)} />
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button
+                  className="gold"
+                  onClick={async () => {
+                    if (!token || !newCollectionName.trim()) return;
+                    setSaving(true);
+                    try {
+                      const created = await request('/collections', token, {
+                        method: 'POST',
+                        body: JSON.stringify({ name: newCollectionName.trim() }),
+                      });
+                      // add item to created collection
+                      await request(`/collections/${created.id}/items`, token, {
+                        method: 'POST',
+                        body: JSON.stringify({ quoteImageId: saveModalQuote.id }),
+                      });
+                      setSaveModalQuote(null);
+                      setNewCollectionName('');
+                      setCollections(await request('/collections', token));
+                    } catch (err) {
+                      setNotice((err as Error).message);
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  Create & save
+                </button>
+                <button type="button" className="textButton" onClick={() => setSaveModalQuote(null)}>Cancel</button>
+              </div>
+            </div>
           </section>
         </div>
       )}
