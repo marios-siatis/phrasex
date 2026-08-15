@@ -7,7 +7,7 @@ const fs = require('fs');
 
 const caPath = path.join(__dirname, 'global-bundle.pem');
 
-const Hashtags = "#imagequotes #quoteoftheday #quotestoliveby";
+const Hashtags = "#phrasex #imagequotes #quoteoftheday #quotestoliveby";
 const IS_LOCAL = process.env.IS_LOCAL === 'true';
 console.log(`IS_LOCAL=${IS_LOCAL}, caPath=${caPath}, exists=${fs.existsSync(caPath)}`);
 const DATABASE_URL = process.env.DATABASE_URL;
