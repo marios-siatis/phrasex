@@ -97,8 +97,8 @@ resource "aws_lambda_function" "checker" {
       THRESHOLD_HOURS = tostring(
         var.lambda_threshold_hours
       ),
-      POLL_INTERVAL_SECONDS = 10
-      RUN_ONCE              = false
+      POLL_INTERVAL_SECONDS   = 10
+      RUN_ONCE                = false
       INSTAGRAM_GRAPH_VERSION = var.lambda_instagram_graph_version
     }
   }
